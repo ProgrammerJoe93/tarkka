@@ -1,0 +1,40 @@
+#pragma once
+
+#include <QByteArray>
+#include <QString>
+#include <QStringList>
+
+/*!
+ * A small RFC 4180 style CSV reader.
+ *
+ * Bank exports vary in delimiter (Nordea uses semicolons or tabs, Revolut uses
+ * commas) and in encoding, so both are detected rather than assumed. Quoted
+ * fields may contain the delimiter, doubled quotes and newlines.
+ */
+namespace Csv {
+
+struct Table
+{
+    QStringList header;
+    QList<QStringList> rows;
+    QChar delimiter;
+    bool isEmpty() const { return header.isEmpty() && rows.isEmpty(); }
+};
+
+//! Guesses the delimiter by counting candidates outside quotes on the first line.
+QChar detectDelimiter(const QString &text);
+
+//! Decodes \a data as UTF-8, falling back to Latin-1 when that is not valid UTF-8.
+QString decode(const QByteArray &data);
+
+Table parse(const QString &text, QChar delimiter = QChar());
+
+/*!
+ * Finds the index of the first column whose header matches one of \a aliases.
+ *
+ * Matching ignores case, surrounding whitespace and BOM noise, so the same
+ * alias table copes with "Amount", "amount" and "﻿Amount".
+ */
+int columnIndex(const QStringList &header, const QStringList &aliases);
+
+} // namespace Csv

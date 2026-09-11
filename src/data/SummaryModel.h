@@ -1,0 +1,84 @@
+#pragma once
+
+#include "core/Transaction.h"
+
+#include <QAbstractListModel>
+#include <QDate>
+#include <QHash>
+#include <QVariantList>
+#include <QQmlEngine>
+
+/*!
+ * Per-category spend totals for the dashboard, largest first.
+ *
+ * Only outgoing rows are aggregated -- mixing income in would make the shares
+ * meaningless -- and the totals are recomputed from whatever slice of
+ * transactions the dashboard is currently showing.
+ */
+class SummaryModel : public QAbstractListModel
+{
+    Q_OBJECT
+    QML_ELEMENT
+    QML_UNCREATABLE("Provided by AppController")
+
+    Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
+    Q_PROPERTY(QString totalSpentText READ totalSpentText NOTIFY countChanged)
+    Q_PROPERTY(QString totalReceivedText READ totalReceivedText NOTIFY countChanged)
+    Q_PROPERTY(QString netText READ netText NOTIFY countChanged)
+    Q_PROPERTY(QString largestCategory READ largestCategory NOTIFY countChanged)
+    Q_PROPERTY(QVariantList dailySpend READ dailySpend NOTIFY countChanged)
+
+public:
+    enum Role {
+        CategoryRole = Qt::UserRole + 1,
+        AmountMinorRole,
+        AmountTextRole,
+        ShareRole,
+        TransactionCountRole,
+    };
+    Q_ENUM(Role)
+
+    explicit SummaryModel(QObject *parent = nullptr);
+
+    //! \a from and \a to bound the daily series so empty days still appear.
+    void setTransactions(const TransactionList &transactions,
+                         const QDate &from = {},
+                         const QDate &to = {});
+
+    int rowCount(const QModelIndex &parent = {}) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
+
+    QString totalSpentText() const;
+    QString totalReceivedText() const;
+    QString netText() const;
+    QString largestCategory() const;
+
+    /*!
+     * One entry per day in the range: {"date", "amountMinor", "share"}.
+     *
+     * \c share is relative to the busiest day, which is what the sparkline
+     * needs; days with no spending are present with a zero amount so the
+     * spacing stays true to the calendar.
+     */
+    QVariantList dailySpend() const { return m_dailySpend; }
+
+signals:
+    void countChanged();
+
+private:
+    void buildDailySeries(const QHash<QDate, qint64> &byDay, const QDate &from, const QDate &to);
+
+    struct Bucket
+    {
+        QString category;
+        qint64 spentMinor = 0;  //!< Positive magnitude of money spent.
+        int transactionCount = 0;
+    };
+
+    QList<Bucket> m_buckets;
+    QVariantList m_dailySpend;
+    qint64 m_totalSpentMinor = 0;
+    qint64 m_totalReceivedMinor = 0;
+    QString m_currency;
+};

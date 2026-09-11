@@ -1,0 +1,118 @@
+# Budget
+
+A Qt 6 / QML desktop app that pulls your Nordea and Revolut purchases together
+and shows where the money went.
+
+![Dashboard](docs/dashboard.png)
+
+## Getting your real data
+
+This is the part worth reading before anything else, because the obvious route
+does not exist.
+
+**Neither bank will give you direct API access to your own personal accounts.**
+Nordea's Open Banking production API is gated behind a licensed PSD2 AISP
+registration with an eIDAS certificate, which an individual cannot obtain — its
+sandbox is open to anyone, but only serves fake data. Revolut has no personal
+account API at all; its Business API needs a Revolut Business account on the
+Grow plan or above, and its Open Banking API is for regulated third parties.
+Nordigen/GoCardless, which used to be the free workaround, closed to new
+signups in 2025.
+
+So the app takes the two routes that actually work for a private individual:
+
+### 1. Live sync via Enable Banking (recommended)
+
+[Enable Banking](https://enablebanking.com) is a licensed account-information
+provider with self-serve signup. Its **restricted production** mode is designed
+for exactly this case: you link *your own* accounts to your own application and
+read them live. Nordea and Revolut both go through this single code path.
+
+1. Register an application in the Enable Banking control panel.
+2. Generate an RSA key pair and upload the public half:
+   ```sh
+   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out enablebanking.pem
+   openssl rsa -in enablebanking.pem -pubout -out enablebanking.pub
+   ```
+   Keep `enablebanking.pem` private — the app only stores its *path*.
+3. Whitelist the redirect URL the Settings screen shows you
+   (`http://127.0.0.1:8765/callback` by default).
+4. Activate the application in restricted mode by linking your own accounts.
+5. In **Settings**, enter the application ID, point at the private key, set your
+   country, and save.
+6. In **Banks**, load the bank list, pick Nordea, complete the consent flow in
+   the browser, then do the same for Revolut. Hit **Sync now**.
+
+Consent lasts up to 90 days, after which the bank asks again.
+
+### 2. Statement import (works immediately, no credentials)
+
+Export a CSV from Nordea's netbank or from Revolut (Account → Statement →
+Excel/CSV) and use **Banks → Import a statement**. Columns are matched by
+header name, so both banks' layouts — and the Finnish, Swedish and English
+variants of Nordea's export — are handled without configuration. Rows already
+pulled from the API are not duplicated.
+
+## Building
+
+Requires Qt 6.5+ (built against 6.11), CMake 3.21+, OpenSSL and a C++20
+compiler.
+
+```sh
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+./build/budget_app
+```
+
+Run the tests with:
+
+```sh
+ctest --test-dir build --output-on-failure
+```
+
+## How it is put together
+
+```
+src/
+  core/        Transaction value type, integer money, merchant categorisation
+  data/        SQLite store + the models QML binds to
+  net/         RS256 JWT signing (OpenSSL) and a small JSON HTTP client
+  auth/        Loopback redirect listener, persisted settings
+  providers/   EnableBankingProvider (live) and CsvProvider (import)
+  app/         AppController — the single object QML talks to
+qml/           Main window, four views, reusable components
+tests/         Unit tests for money, CSV, categorisation, storage and JWT
+```
+
+Providers share one `Provider` interface and emit normalised `Transaction`
+rows, so the live API and a CSV file are indistinguishable downstream. The
+SQLite store is the source of truth: the UI reads only from it, which is why
+the app stays usable offline and why a sync that fails halfway never leaves a
+half-populated screen.
+
+A few decisions worth knowing about:
+
+- **Money is never a float.** Amounts are signed integer minor units end to
+  end; parsing and formatting are the only places a decimal exists.
+- **Rows are deduplicated on a stable id** — the bank's own reference when it
+  supplies one, otherwise a hash of date, amount, description and an ordinal so
+  two identical coffees on the same day stay two rows.
+- **A category you set by hand outranks the categoriser** and survives
+  re-syncing.
+- **Pending rows are shown as pending** and are overwritten in place when the
+  bank books them, including a corrected amount.
+
+## Where your data lives
+
+| What | Where |
+|---|---|
+| Transactions | `~/.local/share/budget-app/Budget/transactions.sqlite` |
+| Category rules | `~/.local/share/budget-app/Budget/categories.json` |
+| Application ID, key path, sessions | `~/.config/budget-app/Budget.conf` |
+
+Nothing is sent anywhere except to the Enable Banking API, and the private key
+is read from the path you configure rather than copied into the app's own
+storage.
+
+Edit `categories.json` to change how purchases are grouped — it is a plain
+`{"Category": ["regex", ...]}` map, applied in order, first match wins.
