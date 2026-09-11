@@ -306,6 +306,55 @@ ScrollView {
                     wrapMode: Text.WordWrap
                 }
 
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacing
+
+                    Text {
+                        text: qsTr("From")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    ComboBox {
+                        id: importInstitution
+
+                        Layout.preferredWidth: 200
+                        Layout.preferredHeight: 34
+                        editable: true
+                        // Nordea and Revolut exports are recognised from their
+                        // headers; the other Finnish banks share too much
+                        // vocabulary to tell apart, so they are named here.
+                        model: [qsTr("Detect automatically"), "S-Pankki", "Nordea", "Revolut",
+                                "OP", "Danske Bank", "Aktia", "Säästöpankki"]
+
+                        readonly property string institutionHint:
+                            currentIndex === 0 && editText === textAt(0) ? "" : editText.trim()
+
+                        contentItem: TextField {
+                            text: importInstitution.editText
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSizeSmall
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 10
+                            rightPadding: 24
+                            selectByMouse: true
+                            background: null
+                            onTextEdited: importInstitution.editText = text
+                        }
+
+                        background: Rectangle {
+                            radius: Theme.radiusSmall
+                            color: Theme.background
+                            border.width: 1
+                            border.color: importInstitution.activeFocus ? Theme.accent
+                                                                        : Theme.border
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+                }
+
                 Button {
                     id: connectButton3
 
@@ -337,6 +386,7 @@ ScrollView {
 
         title: qsTr("Choose a bank statement")
         nameFilters: [qsTr("Statement files (*.csv *.txt *.tsv)"), qsTr("All files (*)")]
-        onAccepted: AppController.importStatement(selectedFile)
+        onAccepted: AppController.importStatement(selectedFile,
+                                                  importInstitution.institutionHint)
     }
 }

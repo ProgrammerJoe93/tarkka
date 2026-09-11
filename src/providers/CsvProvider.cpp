@@ -10,12 +10,15 @@
 namespace {
 
 // Column aliases seen across Nordea (Finnish and English exports, semicolon and
-// tab separated) and Revolut statement downloads.
+// tab separated), Revolut statement downloads, and the shared Finnish
+// vocabulary the other domestic banks (S-Pankki, OP, Danske, Aktia) use.
 const QStringList kBookingDateAliases = {
     QStringLiteral("Kirjauspäivä"),   QStringLiteral("Kirjauspaiva"),
     QStringLiteral("Booking date"),   QStringLiteral("Bokföringsdag"),
     QStringLiteral("Completed Date"), QStringLiteral("Date completed (UTC)"),
     QStringLiteral("Date"),           QStringLiteral("Transaction date"),
+    QStringLiteral("Maksupäivä"),     QStringLiteral("Tapahtumapäivä"),
+    QStringLiteral("Kirjauspvm"),
 };
 
 const QStringList kValueDateAliases = {
@@ -37,7 +40,8 @@ const QStringList kDescriptionAliases = {
     QStringLiteral("Otsikko"),     QStringLiteral("Viesti"),
     QStringLiteral("Description"), QStringLiteral("Message"),
     QStringLiteral("Title"),       QStringLiteral("Beskrivning"),
-    QStringLiteral("Tapahtumalaji"),
+    QStringLiteral("Tapahtumalaji"), QStringLiteral("Selite"),
+    QStringLiteral("Tapahtumatyyppi"),
 };
 
 const QStringList kCounterpartyAliases = {
@@ -46,6 +50,8 @@ const QStringList kCounterpartyAliases = {
     QStringLiteral("Recipient"),     QStringLiteral("Payee"),
     QStringLiteral("Sender"),        QStringLiteral("Name"),
     QStringLiteral("Betalningsmottagare"),
+    QStringLiteral("Saajan nimi"),   QStringLiteral("Maksajan nimi"),
+    QStringLiteral("Saaja tai maksaja"), QStringLiteral("Vastapuoli"),
 };
 
 const QStringList kReferenceAliases = {
@@ -122,12 +128,15 @@ QString CsvProvider::detectInstitution(const QStringList &header)
         && Csv::columnIndex(header, {QStringLiteral("Started Date")}) >= 0) {
         return QStringLiteral("Revolut");
     }
-    for (const QString &marker : {QStringLiteral("Kirjauspäivä"),
-                                  QStringLiteral("Arkistointitunnus"),
+    for (const QString &marker : {QStringLiteral("Arkistointitunnus"),
                                   QStringLiteral("Saaja/Maksaja")}) {
         if (Csv::columnIndex(header, {marker}) >= 0)
             return QStringLiteral("Nordea");
     }
+
+    // Other Finnish banks share too much vocabulary to tell apart from the
+    // header alone, so they are left unlabelled unless the caller says which
+    // bank the file came from.
     return {};
 }
 

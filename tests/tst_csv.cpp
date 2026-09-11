@@ -19,6 +19,9 @@ private slots:
     void reportsAnUnrecognisedHeader();
     void assignsDistinctIdsToIdenticalRows();
     void decodesLatin1();
+    void importsAGenericFinnishExport();
+    void labelsRowsFromAnExplicitHint();
+    void doesNotClaimNordeaForAGenericFinnishHeader();
 };
 
 void TestCsv::detectsDelimiter_data()
@@ -173,6 +176,55 @@ void TestCsv::decodesLatin1()
     const TransactionList transactions = provider.parse(data, QStringLiteral("Nordea"), nullptr);
     QCOMPARE(transactions.size(), 1);
     QCOMPARE(transactions.first().amountMinor, -100LL);
+}
+
+void TestCsv::importsAGenericFinnishExport()
+{
+    // Column vocabulary shared by the Finnish banks that are not Nordea --
+    // S-Pankki, OP, Danske and Aktia all draw from this set.
+    const QByteArray data = QString::fromUtf8(
+        "Maksupäivä;Arvopäivä;Summa;Saajan nimi;Selite;Viitenumero;Valuutta\n"
+        "03.09.2026;03.09.2026;-31,45;S-MARKET HERTTONIEMI;Kortti;;EUR\n"
+        "02.09.2026;02.09.2026;-12,00;ALEPA KAMPPI;Kortti;;EUR\n").toUtf8();
+
+    CsvProvider provider;
+    QString errorMessage;
+    const TransactionList transactions = provider.parse(data, QString(), &errorMessage);
+
+    QVERIFY2(errorMessage.isEmpty(), qPrintable(errorMessage));
+    QCOMPARE(transactions.size(), 2);
+    QCOMPARE(transactions.at(0).bookingDate, QDate(2026, 9, 3));
+    QCOMPARE(transactions.at(0).amountMinor, -3145LL);
+    QCOMPARE(transactions.at(0).counterparty, QStringLiteral("S-MARKET HERTTONIEMI"));
+    QCOMPARE(transactions.at(0).currency, QStringLiteral("EUR"));
+}
+
+void TestCsv::labelsRowsFromAnExplicitHint()
+{
+    const QByteArray data = QString::fromUtf8(
+        "Maksupäivä;Summa;Saajan nimi\n"
+        "03.09.2026;-31,45;S-MARKET HERTTONIEMI\n").toUtf8();
+
+    CsvProvider provider;
+    const TransactionList transactions =
+        provider.parse(data, QStringLiteral("S-Pankki"), nullptr);
+
+    QCOMPARE(transactions.size(), 1);
+    QCOMPARE(transactions.first().institution, QStringLiteral("S-Pankki"));
+    QVERIFY(transactions.first().accountId.startsWith(QStringLiteral("S-Pankki")));
+}
+
+void TestCsv::doesNotClaimNordeaForAGenericFinnishHeader()
+{
+    // "Kirjauspäivä" alone is not Nordea-specific; mislabelling another bank's
+    // export would make the per-bank filters silently wrong.
+    const QStringList generic = {QStringLiteral("Kirjauspäivä"), QStringLiteral("Summa"),
+                                 QStringLiteral("Saajan nimi")};
+    QVERIFY(CsvProvider::detectInstitution(generic).isEmpty());
+
+    const QStringList nordea = {QStringLiteral("Kirjauspäivä"), QStringLiteral("Määrä"),
+                                QStringLiteral("Saaja/Maksaja")};
+    QCOMPARE(CsvProvider::detectInstitution(nordea), QStringLiteral("Nordea"));
 }
 
 QTEST_APPLESS_MAIN(TestCsv)

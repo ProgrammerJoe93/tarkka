@@ -28,6 +28,12 @@ provider with self-serve signup. Its **restricted production** mode is designed
 for exactly this case: you link *your own* accounts to your own application and
 read them live. Nordea and Revolut both go through this single code path.
 
+Nothing in that path is bank-specific: the app fetches the supported bank list
+from `/aspsps` at runtime, so **any ASPSP Enable Banking covers works with no
+code change**. In Finland that includes S-Pankki, OP, Danske Bank, Aktia and
+Säästöpankki alongside Nordea. S-Pankki authenticates through S-mobiili, which
+is an ordinary redirect flow and needs no special handling.
+
 1. Register an application in the Enable Banking control panel.
 2. Generate an RSA key pair and upload the public half:
    ```sh
@@ -47,11 +53,20 @@ Consent lasts up to 90 days, after which the bank asks again.
 
 ### 2. Statement import (works immediately, no credentials)
 
-Export a CSV from Nordea's netbank or from Revolut (Account → Statement →
-Excel/CSV) and use **Banks → Import a statement**. Columns are matched by
-header name, so both banks' layouts — and the Finnish, Swedish and English
-variants of Nordea's export — are handled without configuration. Rows already
-pulled from the API are not duplicated.
+Export a CSV from your bank and use **Banks → Import a statement**. Columns are
+matched by header name, covering Revolut's layout, the Finnish, Swedish and
+English variants of Nordea's export, and the shared Finnish vocabulary the
+other domestic banks use (`Maksupäivä`, `Summa`, `Saajan nimi`, `Selite` and so
+on). Rows already pulled from the API are not duplicated.
+
+Only Nordea and Revolut can be identified from their headers alone — the
+remaining Finnish banks share too much column vocabulary to tell apart, and
+guessing would silently mislabel rows and break the per-bank filter. Use the
+**From** dropdown to name the bank when importing one of those; leave it on
+*Detect automatically* for Nordea and Revolut.
+
+If a file does not import, the error message quotes the header row it found —
+that is usually enough to see which column alias is missing.
 
 ## Building
 
