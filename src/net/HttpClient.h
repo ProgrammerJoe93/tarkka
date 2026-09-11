@@ -36,6 +36,13 @@ public:
 
     void setBaseUrl(const QUrl &baseUrl);
     void setBearerToken(const QByteArray &token);
+    /*!
+     * Sets a raw Authorization header.
+     *
+     * Not every API uses the Bearer scheme -- Trading 212 expects the bare API
+     * key -- so this bypasses the prefix setBearerToken adds.
+     */
+    void setAuthorizationHeader(const QByteArray &value);
 
     void get(const QString &path, const QUrlQuery &query, Handler handler);
     void post(const QString &path, const QJsonDocument &body, Handler handler);

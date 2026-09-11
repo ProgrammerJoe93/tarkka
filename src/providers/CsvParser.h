@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QDate>
 #include <QString>
 #include <QStringList>
 
@@ -36,5 +37,17 @@ Table parse(const QString &text, QChar delimiter = QChar());
  * alias table copes with "Amount", "amount" and "﻿Amount".
  */
 int columnIndex(const QStringList &header, const QStringList &aliases);
+
+//! Returns the cell at \a index, trimmed, or an empty string if out of range.
+QString cell(const QStringList &row, int index);
+
+/*!
+ * Parses the date formats bank and broker exports actually use.
+ *
+ * Revolut and Trading 212 write ISO timestamps, Nordea writes dd.MM.yyyy, and
+ * English exports sometimes use yyyy-MM-dd. Anything unrecognised returns an
+ * invalid date so the row can be reported rather than silently dated today.
+ */
+QDate parseDate(const QString &text);
 
 } // namespace Csv

@@ -30,6 +30,8 @@ set(BUDGET_APP_SOURCES
     src/providers/EnableBankingProvider.cpp
     src/providers/CsvProvider.cpp
     src/providers/CsvParser.cpp
+    src/providers/Trading212Csv.cpp
+    src/providers/Trading212Provider.cpp
     src/app/AppController.cpp
 )
 
@@ -50,6 +52,8 @@ set(BUDGET_APP_HEADERS
     src/providers/EnableBankingProvider.h
     src/providers/CsvProvider.h
     src/providers/CsvParser.h
+    src/providers/Trading212Csv.h
+    src/providers/Trading212Provider.h
     src/app/AppController.h
 )
 

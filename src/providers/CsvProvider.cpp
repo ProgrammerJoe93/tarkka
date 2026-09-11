@@ -2,6 +2,7 @@
 
 #include "core/Money.h"
 #include "providers/CsvParser.h"
+#include "providers/Trading212Csv.h"
 
 #include <QDateTime>
 #include <QFile>
@@ -72,47 +73,6 @@ const QStringList kFeeAliases = {
     QStringLiteral("Fee"), QStringLiteral("Palkkio"),
 };
 
-QString cell(const QStringList &row, int index)
-{
-    return (index >= 0 && index < row.size()) ? row.at(index).trimmed() : QString();
-}
-
-/*!
- * Parses the date formats these exports actually use.
- *
- * Revolut writes ISO timestamps, Nordea writes dd.MM.yyyy, and English exports
- * sometimes use yyyy-MM-dd. Anything unrecognised returns an invalid date so
- * the row can be reported rather than silently dated today.
- */
-QDate parseDate(const QString &text)
-{
-    if (text.isEmpty())
-        return {};
-
-    static const QStringList formats = {
-        QStringLiteral("yyyy-MM-dd"),   QStringLiteral("dd.MM.yyyy"),
-        QStringLiteral("d.M.yyyy"),     QStringLiteral("dd/MM/yyyy"),
-        QStringLiteral("MM/dd/yyyy"),   QStringLiteral("yyyy/MM/dd"),
-        QStringLiteral("dd-MM-yyyy"),
-    };
-
-    // "2026-09-12 14:03:11" and "2026-09-12T14:03:11Z" both start with a date.
-    const QString datePart = text.left(10);
-    for (const QString &format : formats) {
-        const QDate date = QDate::fromString(datePart, format);
-        if (date.isValid())
-            return date;
-    }
-    for (const QString &format : formats) {
-        const QDate date = QDate::fromString(text, format);
-        if (date.isValid())
-            return date;
-    }
-
-    const QDateTime timestamp = QDateTime::fromString(text, Qt::ISODate);
-    return timestamp.isValid() ? timestamp.date() : QDate();
-}
-
 } // namespace
 
 CsvProvider::CsvProvider(QObject *parent)
@@ -124,6 +84,9 @@ QString CsvProvider::detectInstitution(const QStringList &header)
 {
     // Revolut is the only one of the two that ships a "Product" column next to
     // "Started Date"; Nordea exports carry Finnish or Swedish column names.
+    if (Trading212::matches(header))
+        return QStringLiteral("Trading 212");
+
     if (Csv::columnIndex(header, {QStringLiteral("Product")}) >= 0
         && Csv::columnIndex(header, {QStringLiteral("Started Date")}) >= 0) {
         return QStringLiteral("Revolut");
@@ -150,6 +113,12 @@ TransactionList CsvProvider::parse(const QByteArray &data,
             *errorMessage = QStringLiteral("The file is empty.");
         return {};
     }
+
+    // Trading 212 mixes card spending with portfolio activity and encodes the
+    // direction in an Action column, so it needs its own mapping rather than
+    // the column-alias treatment the bank exports get.
+    if (Trading212::matches(table.header))
+        return Trading212::parse(table, errorMessage);
 
     const int dateColumn = Csv::columnIndex(table.header, kBookingDateAliases);
     const int amountColumn = Csv::columnIndex(table.header, kAmountAliases);
@@ -180,9 +149,9 @@ TransactionList CsvProvider::parse(const QByteArray &data,
     int ordinal = 0;
 
     for (const QStringList &row : table.rows) {
-        const QDate bookingDate = parseDate(cell(row, dateColumn));
+        const QDate bookingDate = Csv::parseDate(Csv::cell(row, dateColumn));
         bool amountOk = false;
-        const qint64 amountMinor = Money::fromDecimalString(cell(row, amountColumn), &amountOk);
+        const qint64 amountMinor = Money::fromDecimalString(Csv::cell(row, amountColumn), &amountOk);
 
         if (!bookingDate.isValid() || !amountOk) {
             ++skipped;
@@ -192,29 +161,29 @@ TransactionList CsvProvider::parse(const QByteArray &data,
         Transaction transaction;
         transaction.source = sourceId();
         transaction.institution = institution.isEmpty() ? QStringLiteral("Imported") : institution;
-        transaction.accountName = cell(row, productColumn);
+        transaction.accountName = Csv::cell(row, productColumn);
         transaction.accountId = transaction.institution
                                 + (transaction.accountName.isEmpty()
                                        ? QString()
                                        : QLatin1Char('/') + transaction.accountName);
         transaction.bookingDate = bookingDate;
-        transaction.valueDate = valueDateColumn >= 0 ? parseDate(cell(row, valueDateColumn))
+        transaction.valueDate = valueDateColumn >= 0 ? Csv::parseDate(Csv::cell(row, valueDateColumn))
                                                      : bookingDate;
-        transaction.counterparty = cell(row, counterpartyColumn);
-        transaction.description = cell(row, descriptionColumn);
+        transaction.counterparty = Csv::cell(row, counterpartyColumn);
+        transaction.description = Csv::cell(row, descriptionColumn);
         if (transaction.description.isEmpty())
             transaction.description = transaction.counterparty;
-        transaction.reference = cell(row, referenceColumn);
-        transaction.currency = currencyColumn >= 0 ? cell(row, currencyColumn)
+        transaction.reference = Csv::cell(row, referenceColumn);
+        transaction.currency = currencyColumn >= 0 ? Csv::cell(row, currencyColumn)
                                                    : QStringLiteral("EUR");
-        transaction.status = statusColumn >= 0 ? cell(row, statusColumn) : QStringLiteral("BOOK");
+        transaction.status = statusColumn >= 0 ? Csv::cell(row, statusColumn) : QStringLiteral("BOOK");
 
         // Revolut reports the card fee in its own column; fold it into the row
         // so the total matches what actually left the account.
         transaction.amountMinor = amountMinor;
         if (feeColumn >= 0) {
             bool feeOk = false;
-            const qint64 fee = Money::fromDecimalString(cell(row, feeColumn), &feeOk);
+            const qint64 fee = Money::fromDecimalString(Csv::cell(row, feeColumn), &feeOk);
             if (feeOk && fee != 0)
                 transaction.amountMinor -= qAbs(fee);
         }

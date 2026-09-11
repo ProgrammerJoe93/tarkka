@@ -317,7 +317,10 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: qsTr("Works without any credentials. Export a CSV from Nordea's " + "netbank or from Revolut (Statement → Excel/CSV) and drop it in — " + "the columns are matched by name, and rows already synced from " + "the API are not duplicated.")
+                    text: qsTr("Works without any credentials. Export a CSV from your bank, "
+                               + "or from Trading 212 (History → Export), and drop it in. "
+                               + "Columns are matched by name, and rows already synced "
+                               + "through an API are not duplicated.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap
@@ -343,7 +346,8 @@ ScrollView {
                         // headers; the other Finnish banks share too much
                         // vocabulary to tell apart, so they are named here.
                         model: [qsTr("Detect automatically"), "S-Pankki", "Nordea", "Revolut",
-                                "OP", "Danske Bank", "Aktia", "Säästöpankki"]
+                                "Trading 212", "OP", "Danske Bank", "Aktia",
+                                "Säästöpankki"]
 
                         readonly property string institutionHint:
                             currentIndex === 0 && editText === textAt(0) ? "" : editText.trim()

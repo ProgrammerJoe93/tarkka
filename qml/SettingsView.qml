@@ -244,6 +244,142 @@ ScrollView {
 
         Rectangle {
             Layout.fillWidth: true
+            Layout.preferredHeight: tradingColumn.implicitHeight + 2 * Theme.spacingLarge
+            radius: Theme.radius
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.border
+
+            ColumnLayout {
+                id: tradingColumn
+
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLarge
+                spacing: Theme.spacing
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Trading 212")
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSizeBody
+                        font.weight: Font.DemiBold
+                    }
+
+                    Rectangle {
+                        visible: AppController.trading212Configured
+                        Layout.preferredWidth: linkedLabel.implicitWidth + 16
+                        Layout.preferredHeight: 20
+                        radius: 10
+                        color: Qt.alpha(Theme.positive, 0.16)
+
+                        Text {
+                            id: linkedLabel
+                            anchors.centerIn: parent
+                            text: qsTr("Connected")
+                            color: Theme.positive
+                            font.pixelSize: 10
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Trading 212 is a broker, not a bank, so it is reached through " +
+                               "its own API rather than open banking. Generate an API key in " +
+                               "the app under Settings → API, with history access. The key is " +
+                               "written to an owner-only file, never into the settings.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacing
+
+                    TextField {
+                        id: trading212Key
+
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 34
+                        echoMode: TextInput.Password
+                        placeholderText: AppController.trading212Configured
+                                         ? qsTr("A key is stored — type a new one to replace it")
+                                         : qsTr("Paste your Trading 212 API key")
+                        color: Theme.text
+                        placeholderTextColor: Theme.textFaint
+                        selectByMouse: true
+
+                        background: Rectangle {
+                            radius: Theme.radiusSmall
+                            color: Theme.background
+                            border.width: 1
+                            border.color: trading212Key.activeFocus ? Theme.accent : Theme.border
+                        }
+                    }
+
+                    Button {
+                        id: saveKeyButton
+
+                        text: qsTr("Save key")
+                        enabled: trading212Key.text.trim().length > 0
+                        onClicked: {
+                            AppController.saveTrading212Key(trading212Key.text);
+                            trading212Key.clear();
+                        }
+
+                        contentItem: Text {
+                            text: saveKeyButton.text
+                            color: saveKeyButton.enabled ? Theme.background : Theme.textFaint
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.weight: Font.DemiBold
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            implicitHeight: 34
+                            implicitWidth: 96
+                            radius: Theme.radiusSmall
+                            color: !saveKeyButton.enabled ? Theme.surfaceRaised
+                                                          : saveKeyButton.down
+                                                            ? Qt.darker(Theme.accent, 1.2)
+                                                            : Theme.accent
+                        }
+                    }
+
+                    Button {
+                        id: forgetKeyButton
+
+                        visible: AppController.trading212Configured
+                        text: qsTr("Forget")
+                        onClicked: AppController.saveTrading212Key("")
+
+                        contentItem: Text {
+                            text: forgetKeyButton.text
+                            color: Theme.negative
+                            font.pixelSize: Theme.fontSizeSmall
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            implicitHeight: 34
+                            implicitWidth: 80
+                            radius: Theme.radiusSmall
+                            color: forgetKeyButton.hovered ? Theme.surfaceHover
+                                                           : Theme.surfaceRaised
+                            border.width: 1
+                            border.color: Theme.border
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
             Layout.preferredHeight: aboutColumn.implicitHeight + 2 * Theme.spacingLarge
             radius: Theme.radius
             color: Theme.surface

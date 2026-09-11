@@ -66,11 +66,14 @@ QList<Categoriser::Rule> Categoriser::defaultRules()
                                 // Paying off a credit card: money leaves the bank
                                 // account and lands on the card as a credit.
                                 "maksu *kortille|kortin *maksu|korttilasku|luottokorttilasku|"
+                                // Trading 212 funds a spending card, so moving
+                                // money there is a transfer, not an investment.
+                                "trading *212|trading212|t212|"
                                 "credit *card *(payment|repayment)|card *repayment|"
                                 "payment *received *- *thank *you")),
         makeRule(QStringLiteral("Savings & Investing"),
                  QStringLiteral("nordnet|osuuspankki *saast|rahasto|fund|osake|share|etf|degiro|"
-                                "trading *212|coinbase|kraken|vault|saastotili")),
+                                "coinbase|kraken|vault|saastotili")),
     };
 }
 

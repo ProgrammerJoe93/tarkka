@@ -4,6 +4,7 @@
 #include "providers/CsvProvider.h"
 #include "auth/RedirectListener.h"
 #include "providers/EnableBankingProvider.h"
+#include "providers/Trading212Provider.h"
 
 #include <QClipboard>
 #include <QFileInfo>
@@ -15,6 +16,7 @@ AppController::AppController(QObject *parent)
     : QObject(parent)
     , m_bank(new EnableBankingProvider(this))
     , m_csv(new CsvProvider(this))
+    , m_trading212(new Trading212Provider(this))
 {
     m_filterModel.setSourceModel(&m_transactionModel);
 
@@ -43,29 +45,32 @@ AppController::AppController(QObject *parent)
         connect(provider, &Provider::progress, this,
                 [this](const QString &message) { report(message, false); });
         connect(provider, &Provider::finished, this, [this](const QString &summary) {
-            setBusy(false);
+            endTask();
             report(summary, false);
             reload();
         });
         connect(provider, &Provider::failed, this, [this](const QString &message) {
-            setBusy(false);
+            endTask();
             report(message, true);
         });
     };
     connectProvider(m_bank);
     connectProvider(m_csv);
+    connectProvider(m_trading212);
 
     connect(m_bank, &EnableBankingProvider::banksLoaded, this,
             [this](const QVariantList &banks) {
-                setBusy(false);
+                endTask();
                 m_banks = banks;
                 emit banksChanged();
             });
     connect(m_bank, &EnableBankingProvider::accountsChanged, this, [this] {
-        setBusy(false);
         emit dataChanged();
     });
     connect(m_bank, &EnableBankingProvider::connected, this, [this] {
+        // The consent flow ends here rather than with finished(), so close out
+        // the task connectBank() opened before starting the follow-up sync.
+        endTask();
         // A freshly linked bank has no rows here yet, so pull them immediately.
         syncNow();
     });
@@ -83,12 +88,22 @@ AccountModel *AppController::accounts()
     return m_bank->accountModel();
 }
 
-void AppController::setBusy(bool busy)
+void AppController::beginTask()
 {
-    if (m_busy == busy)
-        return;
-    m_busy = busy;
-    emit busyChanged();
+    ++m_activeTasks;
+    if (!m_busy) {
+        m_busy = true;
+        emit busyChanged();
+    }
+}
+
+void AppController::endTask()
+{
+    m_activeTasks = qMax(0, m_activeTasks - 1);
+    if (m_activeTasks == 0 && m_busy) {
+        m_busy = false;
+        emit busyChanged();
+    }
 }
 
 void AppController::report(const QString &message, bool isError)
@@ -224,34 +239,48 @@ void AppController::setLastDays(int days)
 
 void AppController::loadBanks()
 {
-    setBusy(true);
+    beginTask();
     m_bank->loadBanks(m_settings.country());
 }
 
 void AppController::connectBank(const QString &bankName, const QString &countryCode)
 {
-    setBusy(true);
+    beginTask();
     m_bank->connectBank(bankName, countryCode.isEmpty() ? m_settings.country() : countryCode);
 }
 
 void AppController::syncNow()
 {
-    if (!m_settings.isConfigured()) {
-        report(tr("Add your Enable Banking application id and private key in Settings first, "
+    const bool haveBank = m_settings.isConfigured();
+    const bool haveTrading212 = m_trading212->isConfigured();
+
+    if (!haveBank && !haveTrading212) {
+        report(tr("Add your Enable Banking or Trading 212 credentials in Settings first, "
                   "or import a statement file instead."),
                true);
         return;
     }
-    setBusy(true);
-    // Fetch a little wider than the visible range so that rows the bank books
+
+    if (haveBank)
+        beginTask();
+    if (haveTrading212)
+        beginTask();
+
+    // Fetch a little wider than the visible range so that rows a provider books
     // late still land in the month they belong to.
-    m_bank->fetch(m_filter.from.addDays(-7), m_filter.to.addDays(1));
+    const QDate from = m_filter.from.addDays(-7);
+    const QDate to = m_filter.to.addDays(1);
+
+    if (haveBank)
+        m_bank->fetch(from, to);
+    if (haveTrading212)
+        m_trading212->fetch(from, to);
 }
 
 void AppController::importStatement(const QUrl &fileUrl, const QString &institutionHint)
 {
     const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
-    setBusy(true);
+    beginTask();
     m_csv->importFile(path, institutionHint);
 }
 
@@ -295,6 +324,24 @@ void AppController::saveCredentials(const QString &applicationId,
 QString AppController::redirectUrl() const
 {
     return RedirectListener::redirectUrlForPort(m_settings.redirectPort());
+}
+
+bool AppController::isTrading212Configured() const
+{
+    return m_trading212->isConfigured();
+}
+
+void AppController::saveTrading212Key(const QString &apiKey)
+{
+    QString errorMessage;
+    if (!m_settings.setTrading212ApiKey(apiKey, &errorMessage)) {
+        report(errorMessage, true);
+        return;
+    }
+    emit settingsChanged();
+    report(apiKey.trimmed().isEmpty() ? tr("Trading 212 API key removed.")
+                                      : tr("Trading 212 API key saved."),
+           false);
 }
 
 void AppController::copyToClipboard(const QString &text)

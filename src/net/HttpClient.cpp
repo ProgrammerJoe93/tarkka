@@ -1,5 +1,6 @@
 #include "net/HttpClient.h"
 
+#include <QHttpHeaders>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -52,6 +53,15 @@ void HttpClient::setBearerToken(const QByteArray &token)
         m_requests.clearBearerToken();
     else
         m_requests.setBearerToken(token);
+}
+
+void HttpClient::setAuthorizationHeader(const QByteArray &value)
+{
+    m_requests.clearBearerToken();
+    QHttpHeaders headers;
+    if (!value.isEmpty())
+        headers.append(QHttpHeaders::WellKnownHeader::Authorization, value);
+    m_requests.setCommonHeaders(headers);
 }
 
 void HttpClient::get(const QString &path, const QUrlQuery &query, Handler handler)

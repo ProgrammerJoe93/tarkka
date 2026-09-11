@@ -1,5 +1,6 @@
 #include "providers/CsvParser.h"
 
+#include <QDateTime>
 #include <QHash>
 #include <QStringDecoder>
 
@@ -124,6 +125,40 @@ Table parse(const QString &text, QChar delimiter)
     }
     table.rows = records;
     return table;
+}
+
+QString cell(const QStringList &row, int index)
+{
+    return (index >= 0 && index < row.size()) ? row.at(index).trimmed() : QString();
+}
+
+QDate parseDate(const QString &text)
+{
+    if (text.isEmpty())
+        return {};
+
+    static const QStringList formats = {
+        QStringLiteral("yyyy-MM-dd"),   QStringLiteral("dd.MM.yyyy"),
+        QStringLiteral("d.M.yyyy"),     QStringLiteral("dd/MM/yyyy"),
+        QStringLiteral("MM/dd/yyyy"),   QStringLiteral("yyyy/MM/dd"),
+        QStringLiteral("dd-MM-yyyy"),
+    };
+
+    // "2026-09-12 14:03:11" and "2026-09-12T14:03:11Z" both start with a date.
+    const QString datePart = text.left(10);
+    for (const QString &format : formats) {
+        const QDate date = QDate::fromString(datePart, format);
+        if (date.isValid())
+            return date;
+    }
+    for (const QString &format : formats) {
+        const QDate date = QDate::fromString(text, format);
+        if (date.isValid())
+            return date;
+    }
+
+    const QDateTime timestamp = QDateTime::fromString(text, Qt::ISODate);
+    return timestamp.isValid() ? timestamp.date() : QDate();
 }
 
 int columnIndex(const QStringList &header, const QStringList &aliases)

@@ -60,9 +60,36 @@ is identified by the masked PAN the bank reports under `account_id.other`, and
 
 Consent lasts up to 90 days, after which the bank asks again.
 
-### 2. Statement import (works immediately, no credentials)
+### 2. Trading 212 (its own API)
 
-Export a CSV from your bank and use **Banks → Import a statement**. Columns are
+Trading 212 is a broker, not a bank. It has no PSD2 interface — it *consumes*
+open banking for deposits rather than exposing accounts — so the aggregation
+route above cannot reach it. It does have a free public API: generate a key in
+the app under **Settings → API** with history access, then paste it into
+**Settings → Trading 212**. The key is written to an owner-only file rather than
+into the settings.
+
+Card spending is fetched the long way round, and deliberately so. The API's
+`/history/transactions` endpoint reports card payments with an opaque UUID
+instead of a merchant name, which is useless for budgeting. The CSV the export
+endpoint produces *does* carry `Merchant name` and `Merchant category`, so the
+app requests an export, polls until it is built, downloads it and parses it.
+That takes tens of seconds rather than one round trip.
+
+Two things about the export are worth knowing:
+
+- **Share trades are dropped.** A market buy moves cash into holdings; it is not
+  money leaving your pocket, and counting it would make investing look like
+  spending.
+- **Deposits and withdrawals are transfers**, because the other leg is already
+  on the account that funded them.
+
+### 3. Statement import (works immediately, no credentials)
+
+Export a CSV from your bank, or from Trading 212's own history export, and use
+**Banks → Import a statement**. A Trading 212 file is recognised from its
+header and gets the same treatment as an API-fetched one, including the same
+row ids, so importing a period you already synced changes nothing. Columns are
 matched by header name, covering Revolut's layout, the Finnish, Swedish and
 English variants of Nordea's export, and the shared Finnish vocabulary the
 other domestic banks use (`Maksupäivä`, `Summa`, `Saajan nimi`, `Selite` and so
@@ -102,7 +129,8 @@ src/
   data/        SQLite store + the models QML binds to
   net/         RS256 JWT signing (OpenSSL) and a small JSON HTTP client
   auth/        Loopback redirect listener, persisted settings
-  providers/   EnableBankingProvider (live) and CsvProvider (import)
+  providers/   EnableBankingProvider (banks), Trading212Provider (broker API)
+               and CsvProvider (import), behind one Provider interface
   app/         AppController — the single object QML talks to
 qml/           Main window, four views, reusable components
 tests/         Unit tests for money, CSV, categorisation, storage and JWT
@@ -129,6 +157,8 @@ A few decisions worth knowing about:
   credit card bill, or topping up Revolut from your bank, appears once on each
   account; counting either leg would inflate both spending and income. The net
   card says how much was excluded.
+- **Portfolio activity is not spending.** Share trades are excluded; dividends,
+  interest and cashback are counted as income.
 - **Transaction direction follows the bank.** `credit_debit_indicator` decides
   it when present, and the amount's own sign when it is absent, which is what
   the Berlin Group schema specifies.

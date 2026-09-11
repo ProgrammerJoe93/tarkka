@@ -41,6 +41,18 @@ public:
     //! Reads the PEM key from disk. Empty on failure, with \a errorMessage set.
     QByteArray readPrivateKey(QString *errorMessage = nullptr) const;
 
+    /*!
+     * Trading 212 API key.
+     *
+     * The key is a bearer-equivalent secret rather than a file the user already
+     * manages, so it is written to its own owner-only file instead of being
+     * left in the plain-text settings.
+     */
+    QString trading212ApiKey() const;
+    bool setTrading212ApiKey(const QString &key, QString *errorMessage = nullptr);
+    QString trading212BaseUrl() const;
+    void setTrading212BaseUrl(const QString &url);
+
     bool isConfigured() const;
 
     static QString databasePath();

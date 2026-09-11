@@ -15,6 +15,7 @@
 #include <QVariantList>
 
 class CsvProvider;
+class Trading212Provider;
 class EnableBankingProvider;
 
 /*!
@@ -56,6 +57,7 @@ class AppController : public QObject
     Q_PROPERTY(int redirectPort READ redirectPort NOTIFY settingsChanged)
     Q_PROPERTY(QString country READ country NOTIFY settingsChanged)
     Q_PROPERTY(QString redirectUrl READ redirectUrl NOTIFY settingsChanged)
+    Q_PROPERTY(bool trading212Configured READ isTrading212Configured NOTIFY settingsChanged)
 
 public:
     explicit AppController(QObject *parent = nullptr);
@@ -91,6 +93,7 @@ public:
     int redirectPort() const { return m_settings.redirectPort(); }
     QString country() const { return m_settings.country(); }
     QString redirectUrl() const;
+    bool isTrading212Configured() const;
 
     //! Shifts the range to a whole month offset from the current one.
     Q_INVOKABLE void shiftMonth(int months);
@@ -113,6 +116,7 @@ public:
                                      const QString &privateKeyPath,
                                      int redirectPort,
                                      const QString &countryCode);
+    Q_INVOKABLE void saveTrading212Key(const QString &apiKey);
     Q_INVOKABLE void copyToClipboard(const QString &text);
     Q_INVOKABLE void dismissStatus();
 
@@ -125,7 +129,15 @@ signals:
     void settingsChanged();
 
 private:
-    void setBusy(bool busy);
+    /*!
+     * Tracks how many provider runs are outstanding.
+     *
+     * Syncing hits every configured provider at once, so the busy flag has to
+     * count rather than latch -- otherwise the first one to finish clears it
+     * while the others are still working.
+     */
+    void beginTask();
+    void endTask();
     void report(const QString &message, bool isError = false);
     void ingest(const TransactionList &transactions);
     void reload();
@@ -141,9 +153,11 @@ private:
 
     EnableBankingProvider *m_bank = nullptr;
     CsvProvider *m_csv = nullptr;
+    Trading212Provider *m_trading212 = nullptr;
 
     QVariantList m_banks;
     QString m_status;
     bool m_statusIsError = false;
     bool m_busy = false;
+    int m_activeTasks = 0;
 };

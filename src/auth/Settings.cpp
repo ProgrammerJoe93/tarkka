@@ -13,6 +13,7 @@ constexpr auto kRedirectPort = "enablebanking/redirectPort";
 constexpr auto kApiBaseUrl = "enablebanking/apiBaseUrl";
 constexpr auto kCountry = "enablebanking/country";
 constexpr auto kSessionIds = "enablebanking/sessionIds";
+constexpr auto kT212BaseUrl = "trading212/baseUrl";
 
 QString dataDir()
 {
@@ -128,6 +129,57 @@ QByteArray Settings::readPrivateKey(QString *errorMessage) const
 bool Settings::isConfigured() const
 {
     return !applicationId().isEmpty() && !privateKeyPath().isEmpty();
+}
+
+namespace {
+
+QString trading212KeyPath()
+{
+    return dataDir() + QStringLiteral("/trading212.key");
+}
+
+} // namespace
+
+QString Settings::trading212ApiKey() const
+{
+    QFile file(trading212KeyPath());
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    return QString::fromUtf8(file.readAll()).trimmed();
+}
+
+bool Settings::setTrading212ApiKey(const QString &key, QString *errorMessage)
+{
+    const QString path = trading212KeyPath();
+
+    if (key.trimmed().isEmpty()) {
+        QFile::remove(path);
+        return true;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (errorMessage)
+            *errorMessage = QStringLiteral("Cannot store the API key in %1: %2")
+                                .arg(path, file.errorString());
+        return false;
+    }
+    // Narrow the permissions before the secret is written, not after.
+    file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    file.write(key.trimmed().toUtf8());
+    return true;
+}
+
+QString Settings::trading212BaseUrl() const
+{
+    return QSettings()
+        .value(QLatin1String(kT212BaseUrl), QStringLiteral("https://live.trading212.com"))
+        .toString();
+}
+
+void Settings::setTrading212BaseUrl(const QString &url)
+{
+    QSettings().setValue(QLatin1String(kT212BaseUrl), url.trimmed());
 }
 
 QString Settings::databasePath()
