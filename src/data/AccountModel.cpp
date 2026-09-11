@@ -38,12 +38,16 @@ QVariant AccountModel::data(const QModelIndex &index, int role) const
         return account.institution;
     case NameRole:
         return account.name;
-    case IbanRole:
-        return account.iban;
+    case IdentifierRole:
+        return account.identifier;
     case CurrencyRole:
         return account.currency;
     case ProductRole:
         return account.product;
+    case CashAccountTypeRole:
+        return account.cashAccountType;
+    case IsCardRole:
+        return account.isCard();
     default:
         return {};
     }
@@ -56,8 +60,10 @@ QHash<int, QByteArray> AccountModel::roleNames() const
         {SessionIdRole, "sessionId"},
         {InstitutionRole, "institution"},
         {NameRole, "name"},
-        {IbanRole, "iban"},
+        {IdentifierRole, "identifier"},
         {CurrencyRole, "currency"},
         {ProductRole, "product"},
+        {CashAccountTypeRole, "cashAccountType"},
+        {IsCardRole, "isCard"},
     };
 }

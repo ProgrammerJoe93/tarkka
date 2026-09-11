@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Categoriser.h"
 #include "core/Transaction.h"
 
 #include <QAbstractListModel>
@@ -27,6 +28,8 @@ class SummaryModel : public QAbstractListModel
     Q_PROPERTY(QString netText READ netText NOTIFY countChanged)
     Q_PROPERTY(QString largestCategory READ largestCategory NOTIFY countChanged)
     Q_PROPERTY(QVariantList dailySpend READ dailySpend NOTIFY countChanged)
+    Q_PROPERTY(QString transfersText READ transfersText NOTIFY countChanged)
+    Q_PROPERTY(bool hasTransfers READ hasTransfers NOTIFY countChanged)
 
 public:
     enum Role {
@@ -54,6 +57,10 @@ public:
     QString netText() const;
     QString largestCategory() const;
 
+    //! Total moved between the user's own accounts, excluded from the figures above.
+    QString transfersText() const;
+    bool hasTransfers() const { return m_transferCount > 0; }
+
     /*!
      * One entry per day in the range: {"date", "amountMinor", "share"}.
      *
@@ -80,5 +87,7 @@ private:
     QVariantList m_dailySpend;
     qint64 m_totalSpentMinor = 0;
     qint64 m_totalReceivedMinor = 0;
+    qint64 m_transferredMinor = 0;
+    int m_transferCount = 0;
     QString m_currency;
 };

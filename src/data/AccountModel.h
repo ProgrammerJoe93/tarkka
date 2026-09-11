@@ -24,9 +24,18 @@ public:
         QString sessionId;
         QString institution;
         QString name;
-        QString iban;
+        /*! IBAN, or for a credit card the masked PAN the bank reports instead. */
+        QString identifier;
         QString currency;
         QString product;
+        //! ISO 20022 cash account type: CACC, CARD, SVGS, LOAN, CASH, OTHR.
+        QString cashAccountType;
+
+        //! A credit card is a card account, not a payment account with an IBAN.
+        bool isCard() const
+        {
+            return cashAccountType.compare(QLatin1String("CARD"), Qt::CaseInsensitive) == 0;
+        }
     };
 
     enum Role {
@@ -34,9 +43,11 @@ public:
         SessionIdRole,
         InstitutionRole,
         NameRole,
-        IbanRole,
+        IdentifierRole,
         CurrencyRole,
         ProductRole,
+        CashAccountTypeRole,
+        IsCardRole,
     };
     Q_ENUM(Role)
 

@@ -72,8 +72,9 @@ ScrollView {
 
                         required property string institution
                         required property string name
-                        required property string iban
+                        required property string identifier
                         required property string currency
+                        required property bool isCard
 
                         Layout.fillWidth: true
                         spacing: Theme.spacing
@@ -101,8 +102,24 @@ ScrollView {
                             elide: Text.ElideRight
                         }
 
+                        Rectangle {
+                            visible: accountRow.isCard
+                            Layout.preferredWidth: cardLabel.implicitWidth + 14
+                            Layout.preferredHeight: 18
+                            radius: 9
+                            color: Qt.alpha(Theme.accent, 0.16)
+
+                            Text {
+                                id: cardLabel
+                                anchors.centerIn: parent
+                                text: qsTr("Credit card")
+                                color: Theme.accent
+                                font.pixelSize: 10
+                            }
+                        }
+
                         Text {
-                            text: accountRow.iban
+                            text: accountRow.identifier
                             color: Theme.textFaint
                             font.pixelSize: Theme.fontSizeSmall
                             font.family: "monospace"

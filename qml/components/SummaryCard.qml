@@ -47,6 +47,8 @@ Rectangle {
             text: card.caption
             color: Theme.textFaint
             font.pixelSize: Theme.fontSizeSmall
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
             elide: Text.ElideRight
         }
 

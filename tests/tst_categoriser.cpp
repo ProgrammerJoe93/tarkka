@@ -14,6 +14,7 @@ private slots:
     void unknownSpendIsUncategorised();
     void roundTripsThroughFile();
     void firstMatchingRuleWins();
+    void treatsCardRepaymentsAsTransfers();
 };
 
 namespace {
@@ -96,6 +97,20 @@ void TestCategoriser::firstMatchingRuleWins()
     });
     QCOMPARE(categoriser.categorise(spendOn(QStringLiteral("corner shop"))),
              QStringLiteral("First"));
+}
+
+void TestCategoriser::treatsCardRepaymentsAsTransfers()
+{
+    Categoriser categoriser;
+    for (const QString &text : {QStringLiteral("Maksu kortille"),
+                                QStringLiteral("Korttilasku 09/2026"),
+                                QStringLiteral("Credit card payment"),
+                                QStringLiteral("Tilisiirto omalle tilille")}) {
+        Transaction transaction;
+        transaction.counterparty = text;
+        transaction.amountMinor = 20000;  // the credit leg, which looks like income
+        QCOMPARE(categoriser.categorise(transaction), Categoriser::transfers());
+    }
 }
 
 QTEST_APPLESS_MAIN(TestCategoriser)

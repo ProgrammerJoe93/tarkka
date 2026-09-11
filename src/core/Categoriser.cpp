@@ -62,7 +62,12 @@ QList<Categoriser::Rule> Categoriser::defaultRules()
                  QStringLiteral("palvelumaksu|service *fee|korko|interest|fee\\b|provisio|maksu *kortista")),
         makeRule(QStringLiteral("Transfers"),
                  QStringLiteral("tilisiirto|own *transfer|omalle *tilille|to *revolut|from *revolut|"
-                                "top-?up|siirto|transfer")),
+                                "top-?up|siirto|transfer|"
+                                // Paying off a credit card: money leaves the bank
+                                // account and lands on the card as a credit.
+                                "maksu *kortille|kortin *maksu|korttilasku|luottokorttilasku|"
+                                "credit *card *(payment|repayment)|card *repayment|"
+                                "payment *received *- *thank *you")),
         makeRule(QStringLiteral("Savings & Investing"),
                  QStringLiteral("nordnet|osuuspankki *saast|rahasto|fund|osake|share|etf|degiro|"
                                 "trading *212|coinbase|kraken|vault|saastotili")),

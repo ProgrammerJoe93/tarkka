@@ -21,11 +21,25 @@ void SummaryModel::setTransactions(const TransactionList &transactions,
     QHash<QDate, qint64> byDay;
     m_totalSpentMinor = 0;
     m_totalReceivedMinor = 0;
+    m_transferredMinor = 0;
+    m_transferCount = 0;
     m_currency.clear();
 
     for (const Transaction &transaction : transactions) {
         if (m_currency.isEmpty())
             m_currency = transaction.currency;
+
+        /*
+         * Money moved between the user's own accounts is not spending and not
+         * income. With a credit card linked alongside the account that pays it
+         * off, every repayment would otherwise show up twice -- as spend on the
+         * bank account and as income on the card -- inflating both totals.
+         */
+        if (transaction.category.compare(Categoriser::transfers(), Qt::CaseInsensitive) == 0) {
+            m_transferredMinor += qAbs(transaction.amountMinor);
+            ++m_transferCount;
+            continue;
+        }
 
         if (transaction.amountMinor >= 0) {
             m_totalReceivedMinor += transaction.amountMinor;
@@ -46,8 +60,13 @@ void SummaryModel::setTransactions(const TransactionList &transactions,
     buildDailySeries(byDay, from, to);
 
     m_buckets = byCategory.values();
+    // Largest first, then by name. Without the tie-break, two categories with
+    // equal totals would swap places between runs -- the bucket map has no
+    // meaningful order -- and the dashboard would reshuffle for no reason.
     std::sort(m_buckets.begin(), m_buckets.end(), [](const Bucket &a, const Bucket &b) {
-        return a.spentMinor > b.spentMinor;
+        if (a.spentMinor != b.spentMinor)
+            return a.spentMinor > b.spentMinor;
+        return a.category.localeAwareCompare(b.category) < 0;
     });
 
     endResetModel();
@@ -146,6 +165,12 @@ QString SummaryModel::totalReceivedText() const
 QString SummaryModel::netText() const
 {
     return Money::format(m_totalReceivedMinor - m_totalSpentMinor, m_currency);
+}
+
+QString SummaryModel::transfersText() const
+{
+    // Each leg is counted, so halve it to report the amount actually moved.
+    return Money::format(m_transferredMinor / 2, m_currency);
 }
 
 QString SummaryModel::largestCategory() const

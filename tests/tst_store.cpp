@@ -1,3 +1,4 @@
+#include "core/Money.h"
 #include "data/SummaryModel.h"
 #include "data/TransactionStore.h"
 
@@ -18,6 +19,7 @@ private slots:
     void searchesText();
     void summarisesByCategory();
     void buildsDailySeriesWithGaps();
+    void leavesInternalTransfersOutOfTheTotals();
 
 private:
     Transaction make(const QString &id, const QDate &date, qint64 amount,
@@ -171,8 +173,11 @@ void TestStore::summarisesByCategory()
     });
 
     QCOMPARE(summary.rowCount(), 2);
-    // Largest bucket first: Groceries 30.00 beats Transport 30.00? No -- 3000 each.
+    // Groceries and Transport are tied at 30.00, so the name breaks the tie and
+    // the order is stable across runs.
     QCOMPARE(summary.largestCategory(), QStringLiteral("Groceries"));
+    QCOMPARE(summary.data(summary.index(1, 0), SummaryModel::CategoryRole).toString(),
+             QStringLiteral("Transport"));
     QCOMPARE(summary.data(summary.index(0, 0), SummaryModel::AmountMinorRole).toLongLong(),
              3000LL);
     QCOMPARE(summary.data(summary.index(0, 0), SummaryModel::TransactionCountRole).toInt(), 2);
@@ -193,6 +198,30 @@ void TestStore::buildsDailySeriesWithGaps()
     QCOMPARE(series.at(1).toMap().value(QStringLiteral("amountMinor")).toLongLong(), 0LL);
     QCOMPARE(series.at(2).toMap().value(QStringLiteral("share")).toDouble(), 1.0);
     QCOMPARE(series.at(3).toMap().value(QStringLiteral("amountMinor")).toLongLong(), 0LL);
+}
+
+void TestStore::leavesInternalTransfersOutOfTheTotals()
+{
+    SummaryModel summary;
+    // Paying a credit card bill: one leg on each account. Counting either would
+    // inflate the month's spending or income by the size of the repayment.
+    summary.setTransactions({
+        make("1", QDate(2026, 9, 1), -20000, "Aktia", "Transfers", "Maksu kortille"),
+        make("2", QDate(2026, 9, 1), 20000, "Aktia", "Transfers", "Maksu kortille"),
+        make("3", QDate(2026, 9, 2), -2490, "Aktia", "Transport", "FINNAIR OYJ"),
+        make("4", QDate(2026, 9, 3), 250000, "Nordea", "Income", "Employer"),
+    });
+
+    QCOMPARE(summary.totalSpentText(), Money::format(2490, "EUR"));
+    QCOMPARE(summary.totalReceivedText(), Money::format(250000, "EUR"));
+    QCOMPARE(summary.netText(), Money::format(250000 - 2490, "EUR"));
+    QVERIFY(summary.hasTransfers());
+    QCOMPARE(summary.transfersText(), Money::format(20000, "EUR"));
+
+    // The transfer must not appear as a spending category either.
+    QCOMPARE(summary.rowCount(), 1);
+    QCOMPARE(summary.data(summary.index(0, 0), SummaryModel::CategoryRole).toString(),
+             QStringLiteral("Transport"));
 }
 
 QTEST_GUILESS_MAIN(TestStore)

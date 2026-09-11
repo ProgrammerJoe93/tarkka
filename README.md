@@ -34,6 +34,15 @@ code change**. In Finland that includes S-Pankki, OP, Danske Bank, Aktia and
 Säästöpankki alongside Nordea. S-Pankki authenticates through S-mobiili, which
 is an ordinary redirect flow and needs no special handling.
 
+Several banks can be linked at once — each consent is stored as its own session
+and a sync fans out across every account in all of them. That matters when a
+bank exposes its credit cards as a separate entry from its current accounts:
+just run the connect flow twice.
+
+**Credit cards** are handled as first-class accounts. A card has no IBAN, so it
+is identified by the masked PAN the bank reports under `account_id.other`, and
+`cash_account_type: CARD` is used to label it in the account list.
+
 1. Register an application in the Enable Banking control panel.
 2. Generate an RSA key pair and upload the public half:
    ```sh
@@ -116,6 +125,13 @@ A few decisions worth knowing about:
   re-syncing.
 - **Pending rows are shown as pending** and are overwritten in place when the
   bank books them, including a corrected amount.
+- **Transfers between your own accounts are left out of the totals.** Paying a
+  credit card bill, or topping up Revolut from your bank, appears once on each
+  account; counting either leg would inflate both spending and income. The net
+  card says how much was excluded.
+- **Transaction direction follows the bank.** `credit_debit_indicator` decides
+  it when present, and the amount's own sign when it is absent, which is what
+  the Berlin Group schema specifies.
 
 ## Where your data lives
 

@@ -123,7 +123,10 @@ ScrollView {
                 Layout.fillHeight: true
                 label: qsTr("NET")
                 value: AppController.summary.netText
-                caption: qsTr("Income minus spending")
+                caption: AppController.summary.hasTransfers
+                         ? qsTr("Excludes %1 moved between your accounts")
+                           .arg(AppController.summary.transfersText)
+                         : qsTr("Income minus spending")
             }
         }
 

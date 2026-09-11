@@ -5,6 +5,7 @@
 #include "providers/Provider.h"
 
 #include <QDate>
+#include <QJsonArray>
 #include <QVariantList>
 
 class HttpClient;
@@ -62,6 +63,20 @@ public:
     //! Forgets every stored session. Does not revoke consent at the bank.
     void disconnectAll();
 
+    /*!
+     * Maps one page of the API's transaction array onto normalised rows.
+     *
+     * Public so the mapping -- which is where the awkward parts of the wire
+     * format live -- can be tested without a network round trip.
+     */
+    TransactionList parseTransactions(const QJsonArray &array,
+                                      const AccountModel::Account &account) const;
+
+    //! Maps one entry of a session's account list. Public for the same reason.
+    static AccountModel::Account parseAccount(const QJsonValue &value,
+                                              const QString &sessionId,
+                                              const QString &institution);
+
 signals:
     void banksLoaded(const QVariantList &banks);
     void accountsChanged();
@@ -75,8 +90,6 @@ private:
                           const QDate &to,
                           const QString &continuationKey);
     void accountFetchFinished();
-    TransactionList parseTransactions(const QJsonArray &array,
-                                      const AccountModel::Account &account) const;
 
     Settings m_settings;
     HttpClient *m_http;

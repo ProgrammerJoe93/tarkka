@@ -281,31 +281,10 @@ void EnableBankingProvider::loadSession(const QString &sessionId, bool announceC
                         session.value(QStringLiteral("accounts")).toArray();
 
                     for (const QJsonValue &value : sessionAccounts) {
-                        AccountModel::Account account;
-                        account.sessionId = sessionId;
-                        account.institution = institution.isEmpty() ? m_pendingInstitution
-                                                                    : institution;
-
-                        // Accounts arrive either as bare uid strings or as full
-                        // objects depending on the endpoint version.
-                        if (value.isString()) {
-                            account.uid = value.toString();
-                        } else {
-                            const QJsonObject object = value.toObject();
-                            account.uid = jsonString(object, "uid");
-                            account.name = jsonString(object, "name");
-                            account.product = jsonString(object, "product");
-                            account.currency = jsonString(object, "currency");
-                            account.iban = object.value(QStringLiteral("account_id"))
-                                               .toObject()
-                                               .value(QStringLiteral("iban"))
-                                               .toString();
-                        }
-
-                        if (account.name.isEmpty())
-                            account.name = account.product;
-                        if (account.name.isEmpty())
-                            account.name = account.institution;
+                        const AccountModel::Account account = parseAccount(
+                            value,
+                            sessionId,
+                            institution.isEmpty() ? m_pendingInstitution : institution);
                         if (!account.uid.isEmpty())
                             accounts.append(account);
                     }
@@ -406,6 +385,52 @@ void EnableBankingProvider::accountFetchFinished()
     emit finished(summary);
 }
 
+AccountModel::Account EnableBankingProvider::parseAccount(const QJsonValue &value,
+                                                          const QString &sessionId,
+                                                          const QString &institution)
+{
+    AccountModel::Account account;
+    account.sessionId = sessionId;
+    account.institution = institution;
+
+    // Accounts arrive either as bare uid strings or as full objects depending
+    // on the endpoint version.
+    if (value.isString()) {
+        account.uid = value.toString();
+        return account;
+    }
+
+    const QJsonObject object = value.toObject();
+    account.uid = jsonString(object, "uid");
+    account.name = jsonString(object, "name");
+    account.product = jsonString(object, "product");
+    account.currency = jsonString(object, "currency");
+    account.cashAccountType = jsonString(object, "cash_account_type");
+
+    /*
+     * A credit card has no IBAN. The bank identifies it under account_id.other
+     * instead, typically with scheme_name CPAN or a masked PAN, so falling back
+     * there is what stops a card account showing up blank and unidentifiable.
+     */
+    const QJsonObject accountId = object.value(QStringLiteral("account_id")).toObject();
+    account.identifier = accountId.value(QStringLiteral("iban")).toString();
+    if (account.identifier.isEmpty()) {
+        const QJsonObject other = accountId.value(QStringLiteral("other")).toObject();
+        account.identifier = other.value(QStringLiteral("identification")).toString();
+    }
+    if (account.identifier.isEmpty())
+        account.identifier = jsonString(object, "masked_pan");
+
+    if (account.name.isEmpty())
+        account.name = account.product;
+    if (account.name.isEmpty() && account.isCard())
+        account.name = QObject::tr("Credit card");
+    if (account.name.isEmpty())
+        account.name = account.institution;
+
+    return account;
+}
+
 TransactionList EnableBankingProvider::parseTransactions(
     const QJsonArray &array, const AccountModel::Account &account) const
 {
@@ -429,10 +454,21 @@ TransactionList EnableBankingProvider::parseTransactions(
         transaction.accountId = account.uid;
         transaction.accountName = account.name;
 
-        // Anything the bank does not explicitly mark as a credit is money out.
-        const bool isCredit = jsonString(object, "credit_debit_indicator")
-                                  .startsWith(QLatin1String("CRDT"), Qt::CaseInsensitive);
-        transaction.amountMinor = isCredit ? qAbs(magnitude) : -qAbs(magnitude);
+        /*
+         * Direction. credit_debit_indicator is optional in the Berlin Group
+         * schema: when the bank states it the reported amount is unsigned and
+         * the indicator is authoritative, and when it is absent the amount
+         * carries its own sign. Forcing everything without an indicator to be
+         * a debit -- as this once did -- turns incoming money into spending.
+         */
+        const QString indicator = jsonString(object, "credit_debit_indicator");
+        const bool isCredit = indicator.isEmpty()
+                                  ? magnitude > 0
+                                  : indicator.startsWith(QLatin1String("CRDT"),
+                                                         Qt::CaseInsensitive);
+        transaction.amountMinor = indicator.isEmpty()
+                                      ? magnitude
+                                      : (isCredit ? qAbs(magnitude) : -qAbs(magnitude));
         transaction.currency = jsonString(amountObject, "currency");
         if (transaction.currency.isEmpty())
             transaction.currency = account.currency;

@@ -41,6 +41,14 @@ public:
     static QList<Rule> defaultRules();
     static QString uncategorised() { return QStringLiteral("Uncategorised"); }
     static QString income() { return QStringLiteral("Income"); }
+    /*!
+     * Movements between the user's own accounts.
+     *
+     * Named because the summary deliberately leaves this category out of the
+     * spend and income totals: paying a credit card bill or topping up Revolut
+     * would otherwise be counted twice, once on each side.
+     */
+    static QString transfers() { return QStringLiteral("Transfers"); }
 
 private:
     QList<Rule> m_rules;
