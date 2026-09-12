@@ -168,6 +168,14 @@ right per-ABI Qt kit, and signs the release APK — which Gradle leaves unsigned
 and therefore uninstallable. `--run` checks for an attached device before
 building rather than after.
 
+For an emulator, start it with `tools/emulator.sh`. The GPU flag matters more
+than it looks: booting with the software rasteriser
+(`-gpu swiftshader_indirect`) shreds Qt Quick's rounded rectangles, so buttons
+and cards come out with a diagonal across them and half the shape unfilled.
+That is the rasteriser, not the app — the identical APK is pixel-clean under
+`-gpu host`. If a host has no usable GL, `TARKKA_EMULATOR_GPU=swiftshader_indirect`
+will still boot it, but do not judge the UI from what it draws.
+
 ### Desktop, by hand
 
 Requires Qt 6.5+ (built against 6.11), CMake 3.21+, OpenSSL and a C++20
