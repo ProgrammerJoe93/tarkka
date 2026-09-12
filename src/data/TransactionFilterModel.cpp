@@ -15,7 +15,14 @@ void TransactionFilterModel::setSearchText(const QString &text)
     if (m_searchText == text)
         return;
     m_searchText = text;
+    // invalidateRowsFilter() is deprecated from 6.9 but the replacement does
+    // not exist in the 6.5 this project still claims to support.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    beginFilterChange();
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
     invalidateRowsFilter();
+#endif
     emit searchTextChanged();
     emit countChanged();
 }

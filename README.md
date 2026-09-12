@@ -152,7 +152,23 @@ separately from the square tile, at 44% of the canvas.
 
 ## Building
 
-### Desktop
+`tools/build.sh` covers both platforms and knows where everything lives:
+
+```sh
+tools/build.sh                                  # desktop release
+tools/build.sh --test                           # desktop, then the test suite
+tools/build.sh -r                               # desktop, then launch it
+tools/build.sh -p android -a arm64-v8a,x86_64   # a phone and an emulator
+tools/build.sh -p android -a x86_64 -r          # build, install, launch
+tools/build.sh --help                           # every option
+```
+
+It picks a JDK the Android Gradle plugin accepts, locates the SDK, NDK and the
+right per-ABI Qt kit, and signs the release APK — which Gradle leaves unsigned
+and therefore uninstallable. `--run` checks for an attached device before
+building rather than after.
+
+### Desktop, by hand
 
 Requires Qt 6.5+ (built against 6.11), CMake 3.21+, OpenSSL and a C++20
 compiler.
@@ -161,15 +177,10 @@ compiler.
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ./build/tarkka
-```
-
-Run the tests with:
-
-```sh
 ctest --test-dir build --output-on-failure
 ```
 
-### Android
+### Android, by hand
 
 Needs the Qt for Android kits, an Android SDK with build-tools and a platform,
 and NDK 27. The UI switches to a bottom navigation bar and single-column cards
