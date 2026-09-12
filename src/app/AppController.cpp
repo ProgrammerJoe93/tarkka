@@ -331,16 +331,22 @@ bool AppController::isTrading212Configured() const
     return m_trading212->isConfigured();
 }
 
-void AppController::saveTrading212Key(const QString &apiKey)
+void AppController::saveTrading212Credentials(const QString &apiKey, const QString &apiSecret)
 {
+    const bool clearing = apiKey.trimmed().isEmpty() && apiSecret.trimmed().isEmpty();
+    if (!clearing && (apiKey.trimmed().isEmpty() || apiSecret.trimmed().isEmpty())) {
+        report(tr("Trading 212 needs both the API key and the API secret."), true);
+        return;
+    }
+
     QString errorMessage;
-    if (!m_settings.setTrading212ApiKey(apiKey, &errorMessage)) {
+    if (!m_settings.setTrading212Credentials(apiKey, apiSecret, &errorMessage)) {
         report(errorMessage, true);
         return;
     }
     emit settingsChanged();
-    report(apiKey.trimmed().isEmpty() ? tr("Trading 212 API key removed.")
-                                      : tr("Trading 212 API key saved."),
+    report(clearing ? tr("Trading 212 credentials removed.")
+                    : tr("Trading 212 credentials saved."),
            false);
 }
 

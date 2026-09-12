@@ -287,10 +287,11 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: qsTr("Trading 212 is a broker, not a bank, so it is reached through " +
-                               "its own API rather than open banking. Generate an API key in " +
-                               "the app under Settings → API, with history access. The key is " +
-                               "written to an owner-only file, never into the settings.")
+                    text: qsTr("Trading 212 is a broker, not a bank, so it is reached through "
+                               + "its own API rather than open banking. Generate a key pair in "
+                               + "the app under Settings → API with history access; both halves "
+                               + "are needed. They are written to an owner-only file, never "
+                               + "into the settings.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap
@@ -305,10 +306,9 @@ ScrollView {
 
                         Layout.fillWidth: true
                         Layout.preferredHeight: 34
-                        echoMode: TextInput.Password
                         placeholderText: AppController.trading212Configured
-                                         ? qsTr("A key is stored — type a new one to replace it")
-                                         : qsTr("Paste your Trading 212 API key")
+                                         ? qsTr("API key — stored, retype to replace")
+                                         : qsTr("API key")
                         color: Theme.text
                         placeholderTextColor: Theme.textFaint
                         selectByMouse: true
@@ -321,14 +321,36 @@ ScrollView {
                         }
                     }
 
+                    TextField {
+                        id: trading212Secret
+
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 34
+                        echoMode: TextInput.Password
+                        placeholderText: qsTr("API secret")
+                        color: Theme.text
+                        placeholderTextColor: Theme.textFaint
+                        selectByMouse: true
+
+                        background: Rectangle {
+                            radius: Theme.radiusSmall
+                            color: Theme.background
+                            border.width: 1
+                            border.color: trading212Secret.activeFocus ? Theme.accent : Theme.border
+                        }
+                    }
+
                     Button {
                         id: saveKeyButton
 
-                        text: qsTr("Save key")
+                        text: qsTr("Save")
                         enabled: trading212Key.text.trim().length > 0
+                                 && trading212Secret.text.trim().length > 0
                         onClicked: {
-                            AppController.saveTrading212Key(trading212Key.text);
+                            AppController.saveTrading212Credentials(trading212Key.text,
+                                                                    trading212Secret.text);
                             trading212Key.clear();
+                            trading212Secret.clear();
                         }
 
                         contentItem: Text {
@@ -355,7 +377,7 @@ ScrollView {
 
                         visible: AppController.trading212Configured
                         text: qsTr("Forget")
-                        onClicked: AppController.saveTrading212Key("")
+                        onClicked: AppController.saveTrading212Credentials("", "")
 
                         contentItem: Text {
                             text: forgetKeyButton.text

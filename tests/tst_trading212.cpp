@@ -2,6 +2,7 @@
 #include "providers/CsvProvider.h"
 #include "providers/CsvParser.h"
 #include "providers/Trading212Csv.h"
+#include "providers/Trading212Provider.h"
 
 #include <QSet>
 #include <QTest>
@@ -21,6 +22,7 @@ private slots:
     void routesThroughTheGenericImporter();
     void categorisesTopUpsAsTransfersNotInvesting();
     void importsARealisticExport();
+    void buildsABasicAuthorizationHeader();
 
 private:
     static Csv::Table tableOf(const QByteArray &csv);
@@ -211,6 +213,22 @@ void TestTrading212::importsARealisticExport()
     for (const Transaction &row : rows)
         ids.insert(row.id);
     QCOMPARE(ids.size(), rows.size());
+}
+
+void TestTrading212::buildsABasicAuthorizationHeader()
+{
+    // The API takes the key as the Basic username and the secret as the
+    // password. Sending the bare key, as this first did, is simply rejected.
+    const QByteArray header =
+        Trading212Provider::basicAuthHeader(QStringLiteral("my-key"),
+                                            QStringLiteral("my-secret"));
+
+    QVERIFY(header.startsWith("Basic "));
+    const QByteArray decoded = QByteArray::fromBase64(header.mid(6));
+    QCOMPARE(decoded, QByteArrayLiteral("my-key:my-secret"));
+
+    // No stray newline: base64 wrapping would invalidate the credential.
+    QVERIFY(!header.contains('\n'));
 }
 
 QTEST_APPLESS_MAIN(TestTrading212)

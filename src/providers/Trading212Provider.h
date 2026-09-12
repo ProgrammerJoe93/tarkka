@@ -35,6 +35,14 @@ public:
 
     bool isConfigured() const;
 
+    /*!
+     * Builds the HTTP Basic credential the API expects.
+     *
+     * The API key is the username and the API secret the password, base64
+     * encoded — it is not a bearer token, which is what this once sent.
+     */
+    static QByteArray basicAuthHeader(const QString &apiKey, const QString &apiSecret);
+
     //! Requests an export for the range, then polls for it and parses it.
     void fetch(const QDate &from, const QDate &to);
 

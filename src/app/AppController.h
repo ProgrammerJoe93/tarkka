@@ -116,7 +116,8 @@ public:
                                      const QString &privateKeyPath,
                                      int redirectPort,
                                      const QString &countryCode);
-    Q_INVOKABLE void saveTrading212Key(const QString &apiKey);
+    Q_INVOKABLE void saveTrading212Credentials(const QString &apiKey,
+                                               const QString &apiSecret);
     Q_INVOKABLE void copyToClipboard(const QString &text);
     Q_INVOKABLE void dismissStatus();
 

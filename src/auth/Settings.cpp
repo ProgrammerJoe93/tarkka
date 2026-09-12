@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QPair>
 #include <QSettings>
 #include <QStandardPaths>
 
@@ -138,21 +139,44 @@ QString trading212KeyPath()
     return dataDir() + QStringLiteral("/trading212.key");
 }
 
-} // namespace
-
-QString Settings::trading212ApiKey() const
+//! Reads the credential file as {key, secret}; either may be empty.
+QPair<QString, QString> readTrading212File()
 {
     QFile file(trading212KeyPath());
     if (!file.open(QIODevice::ReadOnly))
         return {};
-    return QString::fromUtf8(file.readAll()).trimmed();
+
+    const QStringList lines = QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'));
+    const QString key = lines.value(0).trimmed();
+    const QString secret = lines.value(1).trimmed();
+    return {key, secret};
 }
 
-bool Settings::setTrading212ApiKey(const QString &key, QString *errorMessage)
+} // namespace
+
+QString Settings::trading212ApiKey() const
+{
+    return readTrading212File().first;
+}
+
+QString Settings::trading212ApiSecret() const
+{
+    return readTrading212File().second;
+}
+
+bool Settings::hasTrading212Credentials() const
+{
+    const auto credentials = readTrading212File();
+    return !credentials.first.isEmpty() && !credentials.second.isEmpty();
+}
+
+bool Settings::setTrading212Credentials(const QString &key,
+                                        const QString &secret,
+                                        QString *errorMessage)
 {
     const QString path = trading212KeyPath();
 
-    if (key.trimmed().isEmpty()) {
+    if (key.trimmed().isEmpty() && secret.trimmed().isEmpty()) {
         QFile::remove(path);
         return true;
     }
@@ -160,13 +184,13 @@ bool Settings::setTrading212ApiKey(const QString &key, QString *errorMessage)
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         if (errorMessage)
-            *errorMessage = QStringLiteral("Cannot store the API key in %1: %2")
+            *errorMessage = QStringLiteral("Cannot store the Trading 212 credentials in %1: %2")
                                 .arg(path, file.errorString());
         return false;
     }
-    // Narrow the permissions before the secret is written, not after.
+    // Narrow the permissions before the secrets are written, not after.
     file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-    file.write(key.trimmed().toUtf8());
+    file.write(key.trimmed().toUtf8() + '\n' + secret.trimmed().toUtf8() + '\n');
     return true;
 }
 

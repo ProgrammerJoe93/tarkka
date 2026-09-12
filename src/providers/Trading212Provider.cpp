@@ -16,9 +16,14 @@
 namespace {
 
 constexpr auto kExportsPath = "/api/v0/equity/history/exports";
-//! The export endpoints are rate limited; polling faster achieves nothing.
-constexpr int kPollIntervalMs = 6000;
-constexpr int kMaxPolls = 40;  //!< Roughly four minutes.
+/*
+ * Listing reports is documented at one request per minute, and requesting one
+ * at one per thirty seconds. Polling faster does not get the report sooner, it
+ * just spends the whole budget on 429s, so the interval sits just above the
+ * documented window.
+ */
+constexpr int kPollIntervalMs = 65000;
+constexpr int kMaxPolls = 10;  //!< Roughly eleven minutes.
 
 QString reportStatus(const QJsonObject &report)
 {
@@ -52,9 +57,15 @@ Trading212Provider::Trading212Provider(QObject *parent)
     connect(m_pollTimer, &QTimer::timeout, this, &Trading212Provider::pollForReport);
 }
 
+QByteArray Trading212Provider::basicAuthHeader(const QString &apiKey, const QString &apiSecret)
+{
+    const QByteArray credentials = apiKey.toUtf8() + ':' + apiSecret.toUtf8();
+    return QByteArrayLiteral("Basic ") + credentials.toBase64();
+}
+
 bool Trading212Provider::isConfigured() const
 {
-    return !m_settings.trading212ApiKey().isEmpty();
+    return m_settings.hasTrading212Credentials();
 }
 
 void Trading212Provider::fetch(const QDate &from, const QDate &to)
@@ -64,13 +75,13 @@ void Trading212Provider::fetch(const QDate &from, const QDate &to)
         return;
     }
     if (!isConfigured()) {
-        emit failed(tr("Add your Trading 212 API key in Settings first."));
+        emit failed(tr("Add your Trading 212 API key and secret in Settings first."));
         return;
     }
 
     m_http->setBaseUrl(QUrl(m_settings.trading212BaseUrl()));
-    // Trading 212 expects the raw key, not a Bearer credential.
-    m_http->setAuthorizationHeader(m_settings.trading212ApiKey().toUtf8());
+    m_http->setAuthorizationHeader(basicAuthHeader(m_settings.trading212ApiKey(),
+                                                   m_settings.trading212ApiSecret()));
 
     m_busy = true;
     m_reportId = -1;
@@ -111,8 +122,11 @@ void Trading212Provider::requestExport(const QDate &from, const QDate &to)
                          return;
                      }
 
-                     emit progress(tr("Trading 212 is building the export…"));
+                     emit progress(tr("Trading 212 is building the export. This takes a "
+                                      "minute or two…"));
                      m_pollTimer->start();
+                     // One immediate check, then once per rate-limit window.
+                     pollForReport();
                  });
 }
 

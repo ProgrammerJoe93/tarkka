@@ -64,17 +64,23 @@ Consent lasts up to 90 days, after which the bank asks again.
 
 Trading 212 is a broker, not a bank. It has no PSD2 interface — it *consumes*
 open banking for deposits rather than exposing accounts — so the aggregation
-route above cannot reach it. It does have a free public API: generate a key in
-the app under **Settings → API** with history access, then paste it into
-**Settings → Trading 212**. The key is written to an owner-only file rather than
-into the settings.
+route above cannot reach it. It does have a free
+[public API](https://docs.trading212.com/api): generate a key pair in the app
+under **Settings → API** with history access, then paste **both the key and the
+secret** into **Settings → Trading 212**. The API authenticates with HTTP Basic,
+taking the key as the username and the secret as the password. The pair is
+written to an owner-only file rather than into the settings.
 
 Card spending is fetched the long way round, and deliberately so. The API's
 `/history/transactions` endpoint reports card payments with an opaque UUID
 instead of a merchant name, which is useless for budgeting. The CSV the export
 endpoint produces *does* carry `Merchant name` and `Merchant category`, so the
 app requests an export, polls until it is built, downloads it and parses it.
-That takes tens of seconds rather than one round trip.
+
+The export endpoints are heavily rate limited — one request per 30 seconds to
+ask for a report and one per minute to check on it — so a Trading 212 sync
+takes a minute or two rather than the moment a bank sync takes. Polling any
+faster just spends the budget on `429`s.
 
 Two things about the export are worth knowing:
 

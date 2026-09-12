@@ -42,14 +42,19 @@ public:
     QByteArray readPrivateKey(QString *errorMessage = nullptr) const;
 
     /*!
-     * Trading 212 API key.
+     * Trading 212 credentials.
      *
-     * The key is a bearer-equivalent secret rather than a file the user already
-     * manages, so it is written to its own owner-only file instead of being
-     * left in the plain-text settings.
+     * The API authenticates with HTTP Basic, taking the API key as the username
+     * and the API secret as the password. Both are secrets the user pastes in
+     * rather than files they already manage, so the pair is written to its own
+     * owner-only file instead of being left in the plain-text settings.
      */
     QString trading212ApiKey() const;
-    bool setTrading212ApiKey(const QString &key, QString *errorMessage = nullptr);
+    QString trading212ApiSecret() const;
+    bool setTrading212Credentials(const QString &key,
+                                  const QString &secret,
+                                  QString *errorMessage = nullptr);
+    bool hasTrading212Credentials() const;
     QString trading212BaseUrl() const;
     void setTrading212BaseUrl(const QString &url);
 
