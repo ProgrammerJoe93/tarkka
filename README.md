@@ -38,7 +38,14 @@ S-Pankki, OP, Danske Bank, Aktia and Säästöpankki alongside Nordea.
 **Accounts in several countries** work too. The country box next to *Load banks*
 picks which country's list to browse, so linking a Swedish or German account is
 the same flow run again — each consent is stored as its own session and a sync
-covers all of them. S-Pankki authenticates through S-mobiili, which
+covers all of them.
+
+**The UK is covered, but thinly.** Enable Banking reaches it despite the UK
+sitting outside PSD2 since Brexit, though only six institutions:
+**Barclays, HSBC UK, NatWest** (incl. Mettle and Ulster Bank), **RBS, Coutts**
+and **ABN AMRO UK** — all with production AISP and personal-account support.
+Everything else British, Lloyds and the neobanks included, has to come in as a
+statement file. S-Pankki authenticates through S-mobiili, which
 is an ordinary redirect flow and needs no special handling.
 
 Several banks can be linked at once — each consent is stored as its own session
@@ -100,7 +107,15 @@ Two things about the export are worth knowing:
 ### 3. Statement import (works immediately, no credentials)
 
 Export a CSV from your bank, or from Trading 212's own history export, and use
-**Banks → Import a statement**. A Trading 212 file is recognised from its
+**Banks → Import a statement**. This is the only route for a UK bank outside
+the six above, so the UK layouts are handled explicitly: the **Debit
+Amount / Credit Amount** column pair that Lloyds, Halifax and Bank of Scotland
+use instead of a signed amount, Starling's `Amount (GBP)` heading, NatWest's
+`Value`, and Barclays' `Memo`. Dates are read day-first.
+
+Most UK exports name no currency anywhere, so the import row has a currency box
+alongside the bank name — without it sterling would be filed as euros and
+swallowed into the euro totals. A Trading 212 file is recognised from its
 header and gets the same treatment as an API-fetched one, including the same
 row ids, so importing a period you already synced changes nothing. Columns are
 matched by header name, covering Revolut's layout, the Finnish, Swedish and

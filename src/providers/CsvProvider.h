@@ -29,7 +29,18 @@ public:
      * \a institutionHint names the bank when the file itself does not make it
      * obvious; pass an empty string to let the importer guess from the header.
      */
-    void importFile(const QString &filePath, const QString &institutionHint = {});
+    void importFile(const QString &filePath,
+                    const QString &institutionHint = {},
+                    const QString &defaultCurrency = {});
+
+    /*!
+     * Currency to assume when the file names none.
+     *
+     * Several UK banks export neither a currency column nor a qualified amount
+     * header. Guessing euros there would file sterling rows into the euro
+     * totals, so the importer takes the answer from the caller instead.
+     */
+    void setDefaultCurrency(const QString &code);
 
     //! Parses \a data directly. Exposed for tests and for clipboard imports.
     TransactionList parse(const QByteArray &data,
@@ -38,4 +49,7 @@ public:
 
     //! Best guess at which bank produced a file with this header row.
     static QString detectInstitution(const QStringList &header);
+
+private:
+    QString m_defaultCurrency = QStringLiteral("EUR");
 };

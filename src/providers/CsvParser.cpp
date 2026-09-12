@@ -1,6 +1,7 @@
 #include "providers/CsvParser.h"
 
 #include <QDateTime>
+#include <QRegularExpression>
 #include <QHash>
 #include <QStringDecoder>
 
@@ -125,6 +126,28 @@ Table parse(const QString &text, QChar delimiter)
     }
     table.rows = records;
     return table;
+}
+
+int columnIndexAllowingQualifier(const QStringList &header,
+                                 const QStringList &aliases,
+                                 QString *qualifier)
+{
+    const int exact = columnIndex(header, aliases);
+    if (exact >= 0)
+        return exact;
+
+    static const QRegularExpression bracketed(QStringLiteral("^(.*?)\\s*\\(([^)]*)\\)\\s*$"));
+    for (qsizetype i = 0; i < header.size(); ++i) {
+        const QRegularExpressionMatch match = bracketed.match(header.at(i).trimmed());
+        if (!match.hasMatch())
+            continue;
+        if (columnIndex({match.captured(1)}, aliases) < 0)
+            continue;
+        if (qualifier)
+            *qualifier = match.captured(2).trimmed();
+        return static_cast<int>(i);
+    }
+    return -1;
 }
 
 QString cell(const QStringList &row, int index)

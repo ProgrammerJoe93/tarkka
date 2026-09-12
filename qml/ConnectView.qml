@@ -369,7 +369,8 @@ ScrollView {
                         // vocabulary to tell apart, so they are named here.
                         model: [qsTr("Detect automatically"), "S-Pankki", "Nordea", "Revolut",
                                 "Trading 212", "OP", "Danske Bank", "Aktia",
-                                "Säästöpankki"]
+                                "Säästöpankki", "Lloyds", "Monzo", "Starling",
+                                "HSBC", "Barclays", "NatWest", "Santander"]
 
                         readonly property string institutionHint:
                             currentIndex === 0 && editText === textAt(0) ? "" : editText.trim()
@@ -392,6 +393,35 @@ ScrollView {
                             border.width: 1
                             border.color: importInstitution.activeFocus ? Theme.accent
                                                                         : Theme.border
+                        }
+                    }
+
+                    Text {
+                        text: qsTr("in")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    TextField {
+                        id: importCurrency
+
+                        Layout.preferredWidth: 64
+                        Layout.preferredHeight: 34
+                        text: "EUR"
+                        maximumLength: 3
+                        color: Theme.text
+                        selectByMouse: true
+
+                        Accessible.name: qsTr("Currency for files that do not state one")
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Used only when the file names no currency. "
+                                           + "Several UK exports do not.")
+
+                        background: Rectangle {
+                            radius: Theme.radiusSmall
+                            color: Theme.background
+                            border.width: 1
+                            border.color: importCurrency.activeFocus ? Theme.accent : Theme.border
                         }
                     }
 
@@ -430,6 +460,7 @@ ScrollView {
         title: qsTr("Choose a bank statement")
         nameFilters: [qsTr("Statement files (*.csv *.txt *.tsv)"), qsTr("All files (*)")]
         onAccepted: AppController.importStatement(selectedFile,
-                                                  importInstitution.institutionHint)
+                                                  importInstitution.institutionHint,
+                                                  importCurrency.text)
     }
 }

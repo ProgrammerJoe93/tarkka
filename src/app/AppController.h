@@ -116,7 +116,16 @@ public:
     Q_INVOKABLE void loadBanks(const QString &countryCode = {});
     Q_INVOKABLE void connectBank(const QString &bankName, const QString &countryCode);
     Q_INVOKABLE void syncNow();
-    Q_INVOKABLE void importStatement(const QUrl &fileUrl, const QString &institutionHint = {});
+    /*!
+     * Imports a statement file.
+     *
+     * \a defaultCurrency is used only when the file names no currency of its
+     * own -- several UK exports do not -- so that sterling rows are never
+     * quietly counted as euros.
+     */
+    Q_INVOKABLE void importStatement(const QUrl &fileUrl,
+                                     const QString &institutionHint = {},
+                                     const QString &defaultCurrency = {});
     Q_INVOKABLE void setTransactionCategory(const QString &transactionId, const QString &category);
     Q_INVOKABLE void disconnectAll();
     /*!

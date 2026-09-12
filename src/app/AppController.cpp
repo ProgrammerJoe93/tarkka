@@ -304,11 +304,13 @@ void AppController::syncNow()
         m_trading212->fetch(from, to);
 }
 
-void AppController::importStatement(const QUrl &fileUrl, const QString &institutionHint)
+void AppController::importStatement(const QUrl &fileUrl,
+                                    const QString &institutionHint,
+                                    const QString &defaultCurrency)
 {
     const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
     beginTask();
-    m_csv->importFile(path, institutionHint);
+    m_csv->importFile(path, institutionHint, defaultCurrency);
 }
 
 void AppController::setTransactionCategory(const QString &transactionId, const QString &category)

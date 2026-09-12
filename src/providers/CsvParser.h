@@ -38,6 +38,17 @@ Table parse(const QString &text, QChar delimiter = QChar());
  */
 int columnIndex(const QStringList &header, const QStringList &aliases);
 
+/*!
+ * Like columnIndex, but also matches a header that carries a parenthetical
+ * qualifier, so "Amount (GBP)" matches the alias "Amount".
+ *
+ * When it does, the text inside the brackets is written to \a qualifier --
+ * useful because several UK banks name the currency there and nowhere else.
+ */
+int columnIndexAllowingQualifier(const QStringList &header,
+                                 const QStringList &aliases,
+                                 QString *qualifier = nullptr);
+
 //! Returns the cell at \a index, trimmed, or an empty string if out of range.
 QString cell(const QStringList &row, int index);
 
