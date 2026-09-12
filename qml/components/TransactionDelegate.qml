@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
-import BudgetApp
+import Tarkka
 
 ItemDelegate {
     id: delegate

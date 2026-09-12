@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(budget_app VERSION 0.1.0 LANGUAGES CXX)
+project(tarkka VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,7 +15,7 @@ if(QT_KNOWN_POLICY_QTP0004)
     qt_policy(SET QTP0004 NEW)
 endif()
 
-set(BUDGET_APP_SOURCES
+set(TARKKA_SOURCES
     src/core/Transaction.cpp
     src/core/Categoriser.cpp
     src/data/TransactionStore.cpp
@@ -35,7 +35,7 @@ set(BUDGET_APP_SOURCES
     src/app/AppController.cpp
 )
 
-set(BUDGET_APP_HEADERS
+set(TARKKA_HEADERS
     src/core/Money.h
     src/core/Transaction.h
     src/core/Categoriser.h
@@ -58,11 +58,11 @@ set(BUDGET_APP_HEADERS
 )
 
 # Core logic lives in a static library so the test suite can link it directly.
-qt_add_library(budget_core STATIC ${BUDGET_APP_SOURCES} ${BUDGET_APP_HEADERS})
+qt_add_library(tarkka_core STATIC ${TARKKA_SOURCES} ${TARKKA_HEADERS})
 # The generated QML type registration file includes headers by basename, so the
 # directories holding QML_ELEMENT types have to be reachable directly as well as
 # through the "core/..." style paths the sources use.
-target_include_directories(budget_core PUBLIC
+target_include_directories(tarkka_core PUBLIC
     src
     src/app
     src/core
@@ -70,15 +70,15 @@ target_include_directories(budget_core PUBLIC
     src/net
     src/providers
 )
-target_link_libraries(budget_core PUBLIC
+target_link_libraries(tarkka_core PUBLIC
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Network Qt6::Sql OpenSSL::Crypto)
 
 set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
-qt_add_qml_module(budget_core
-    URI BudgetApp
+qt_add_qml_module(tarkka_core
+    URI Tarkka
     VERSION 1.0
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/BudgetApp
+    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Tarkka
     QML_FILES
         qml/Main.qml
         qml/Theme.qml
@@ -94,13 +94,13 @@ qt_add_qml_module(budget_core
         qml/components/EmptyState.qml
 )
 
-qt_add_executable(budget_app src/main.cpp)
-target_compile_definitions(budget_app PRIVATE BUDGET_APP_VERSION="${PROJECT_VERSION}")
-target_link_libraries(budget_app PRIVATE budget_core budget_coreplugin Qt6::Quick Qt6::QuickControls2)
+qt_add_executable(tarkka src/main.cpp)
+target_compile_definitions(tarkka PRIVATE TARKKA_VERSION="${PROJECT_VERSION}")
+target_link_libraries(tarkka PRIVATE tarkka_core tarkka_coreplugin Qt6::Quick Qt6::QuickControls2)
 
 include(CTest)
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-install(TARGETS budget_app RUNTIME DESTINATION bin)
+install(TARGETS tarkka RUNTIME DESTINATION bin)

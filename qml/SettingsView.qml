@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Dialogs
 import QtQuick.Layouts
-import BudgetApp
+import Tarkka
 
 ScrollView {
     id: view
@@ -92,7 +92,7 @@ ScrollView {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 34
                             text: AppController.privateKeyPath
-                            placeholderText: qsTr("/home/you/.config/budget/enablebanking.pem")
+                            placeholderText: qsTr("/home/you/.config/tarkka/enablebanking.pem")
                             color: Theme.text
                             placeholderTextColor: Theme.textFaint
                             selectByMouse: true

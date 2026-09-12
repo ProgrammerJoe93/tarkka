@@ -4,7 +4,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Dialogs
 import QtQuick.Layouts
-import BudgetApp
+import Tarkka
 
 ScrollView {
     id: view

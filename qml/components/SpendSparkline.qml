@@ -3,7 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
-import BudgetApp
+import Tarkka
 
 /*!
     Daily outgoing totals across the selected range.

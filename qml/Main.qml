@@ -3,7 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
-import BudgetApp
+import Tarkka
 
 ApplicationWindow {
     id: window
@@ -20,7 +20,7 @@ ApplicationWindow {
     minimumWidth: 860
     minimumHeight: 560
     visible: true
-    title: qsTr("Budget")
+    title: qsTr("Tarkka")
     color: Theme.background
 
     RowLayout {
@@ -68,7 +68,7 @@ ApplicationWindow {
 
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("Budget")
+                        text: qsTr("Tarkka")
                         color: Theme.text
                         font.pixelSize: Theme.fontSizeTitle
                         font.weight: Font.DemiBold

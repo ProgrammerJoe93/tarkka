@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import BudgetApp
+import Tarkka
 
 Rectangle {
     id: card

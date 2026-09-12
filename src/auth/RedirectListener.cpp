@@ -95,7 +95,7 @@ void RedirectListener::handleConnection()
 
             if (!code.isEmpty()) {
                 socket->write(htmlResponse(tr("Bank connected"),
-                                           tr("You can close this tab and return to Budget.")));
+                                           tr("You can close this tab and return to Tarkka.")));
                 socket->disconnectFromHost();
                 emit codeReceived(code, state);
                 return;
@@ -114,7 +114,7 @@ void RedirectListener::handleConnection()
             // Browsers routinely ask for /favicon.ico on the same origin; that
             // is not a failed consent, so answer it without reporting anything.
             socket->write(htmlResponse(tr("Waiting for the bank"),
-                                       tr("This page is the redirect target for Budget.")));
+                                       tr("This page is the redirect target for Tarkka.")));
             socket->disconnectFromHost();
         });
     }

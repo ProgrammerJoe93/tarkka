@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-import BudgetApp
+import Tarkka
 
 ColumnLayout {
     id: root

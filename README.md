@@ -1,7 +1,9 @@
-# Budget
+# Tarkka
 
-A Qt 6 / QML desktop app that pulls your Nordea and Revolut purchases together
-and shows where the money went.
+A Qt 6 / QML desktop app that pulls your purchases from every bank and card you
+use into one place, and shows where the money actually went.
+
+*Tarkka* is Finnish for precise — and, said of a person, careful with money.
 
 ![Dashboard](docs/dashboard.png)
 
@@ -118,7 +120,7 @@ compiler.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-./build/budget_app
+./build/tarkka
 ```
 
 Run the tests with:
@@ -173,9 +175,10 @@ A few decisions worth knowing about:
 
 | What | Where |
 |---|---|
-| Transactions | `~/.local/share/budget-app/Budget/transactions.sqlite` |
-| Category rules | `~/.local/share/budget-app/Budget/categories.json` |
-| Application ID, key path, sessions | `~/.config/budget-app/Budget.conf` |
+| Transactions | `~/.local/share/tarkka/Tarkka/transactions.sqlite` |
+| Category rules | `~/.local/share/tarkka/Tarkka/categories.json` |
+| Application ID, key path, sessions | `~/.config/tarkka/Tarkka.conf` |
+| Trading 212 key and secret | `~/.local/share/tarkka/Tarkka/trading212.key` (owner-only) |
 
 Nothing is sent anywhere except to the Enable Banking API, and the private key
 is read from the path you configure rather than copied into the app's own
