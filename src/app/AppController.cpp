@@ -141,6 +141,17 @@ void AppController::reload()
         return;
 
     QString errorMessage;
+    // Minor units only add up within one currency, so the view is always
+    // pinned to exactly one. Default to the most-used rather than showing a
+    // meaningless mixed total.
+    if (m_filter.currency.isEmpty()) {
+        const QStringList available = m_store.currencies();
+        if (!available.isEmpty()) {
+            m_filter.currency = available.first();
+            emit filterChanged();
+        }
+    }
+
     const TransactionList rows = m_store.query(m_filter, &errorMessage);
     if (!errorMessage.isEmpty())
         report(errorMessage, true);
@@ -158,6 +169,20 @@ QStringList AppController::institutions() const
 QStringList AppController::categories() const
 {
     return m_store.isOpen() ? m_store.categories() : QStringList();
+}
+
+QStringList AppController::currencies() const
+{
+    return m_store.isOpen() ? m_store.currencies() : QStringList();
+}
+
+void AppController::setCurrencyFilter(const QString &currency)
+{
+    if (m_filter.currency == currency)
+        return;
+    m_filter.currency = currency;
+    emit filterChanged();
+    reload();
 }
 
 void AppController::setDateFrom(const QDate &date)
@@ -237,10 +262,12 @@ void AppController::setLastDays(int days)
     reload();
 }
 
-void AppController::loadBanks()
+void AppController::loadBanks(const QString &countryCode)
 {
     beginTask();
-    m_bank->loadBanks(m_settings.country());
+    const QString country = countryCode.trimmed().isEmpty() ? m_settings.country()
+                                                            : countryCode.trimmed().toUpper();
+    m_bank->loadBanks(country);
 }
 
 void AppController::connectBank(const QString &bankName, const QString &countryCode)

@@ -221,6 +221,10 @@ TransactionList TransactionStore::query(const Filter &filter, QString *errorMess
         sql += QStringLiteral(" AND category = ?");
         bindings << filter.category;
     }
+    if (!filter.currency.isEmpty()) {
+        sql += QStringLiteral(" AND currency = ?");
+        bindings << filter.currency;
+    }
     if (filter.spendOnly)
         sql += QStringLiteral(" AND amount_minor < 0");
     if (!filter.searchText.isEmpty()) {
@@ -266,6 +270,18 @@ QStringList TransactionStore::categories() const
     QStringList values;
     if (query.exec(QStringLiteral("SELECT DISTINCT category FROM transactions"
                                   " WHERE category <> '' ORDER BY category"))) {
+        while (query.next())
+            values.append(query.value(0).toString());
+    }
+    return values;
+}
+
+QStringList TransactionStore::currencies() const
+{
+    QSqlQuery query(QSqlDatabase::database(m_connectionName));
+    QStringList values;
+    if (query.exec(QStringLiteral("SELECT currency FROM transactions WHERE currency <> ''"
+                                  " GROUP BY currency ORDER BY COUNT(*) DESC, currency"))) {
         while (query.next())
             values.append(query.value(0).toString());
     }

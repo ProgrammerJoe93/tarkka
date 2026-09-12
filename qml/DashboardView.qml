@@ -35,12 +35,66 @@ ScrollView {
                 }
 
                 Text {
-                    text: qsTr("%n purchase(s) across %1", "", AppController.transactions.count)
-                        .arg(AppController.institutions.length > 0
-                             ? AppController.institutions.join(", ")
-                             : qsTr("no connected banks yet"))
+                    visible: AppController.summary.hasOtherCurrencies
+                    text: qsTr("Showing %1 only — %n row(s) in other currencies are excluded",
+                               "", AppController.summary.otherCurrencyCount)
+                        .arg(AppController.summary.currency)
+                    color: Theme.warning
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                Text {
+                    text: {
+                        const where = AppController.institutions.length > 0
+                                    ? AppController.institutions.join(", ")
+                                    : qsTr("no connected banks yet");
+                        const base = qsTr("%n purchase(s) across %1", "",
+                                          AppController.transactions.count).arg(where);
+                        const others = AppController.currencies.filter(
+                            c => c !== AppController.currencyFilter);
+                        return others.length > 0
+                             ? qsTr("%1 · also holding %2").arg(base).arg(others.join(", "))
+                             : base;
+                    }
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSizeSmall
+                }
+            }
+
+            ComboBox {
+                id: dashboardCurrency
+
+                /*
+                 * Totals only make sense within one currency, so the dashboard
+                 * shows one at a time. Without this the other currencies would
+                 * simply be missing from the figures with nothing to say so.
+                 */
+                visible: AppController.currencies.length > 1
+                Layout.preferredWidth: visible ? 112 : 0
+                Layout.preferredHeight: 32
+                model: AppController.currencies
+                currentIndex: Math.max(0, AppController.currencies
+                                          .indexOf(AppController.currencyFilter))
+                onActivated: index => AppController.currencyFilter =
+                    AppController.currencies[index]
+
+                Accessible.name: qsTr("Currency shown")
+
+                contentItem: Text {
+                    leftPadding: 10
+                    rightPadding: 18
+                    text: dashboardCurrency.displayText
+                    color: Theme.text
+                    font.pixelSize: Theme.fontSizeSmall
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+
+                background: Rectangle {
+                    radius: Theme.radiusSmall
+                    color: Theme.surface
+                    border.width: 1
+                    border.color: Theme.border
                 }
             }
 

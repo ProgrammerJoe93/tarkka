@@ -22,6 +22,7 @@ public:
         QDate to;
         QString institution;   //!< Empty means all banks.
         QString category;      //!< Empty means all categories.
+        QString currency;      //!< Empty means all currencies.
         QString searchText;    //!< Matched against description and counterparty.
         bool spendOnly = false;
     };
@@ -46,6 +47,8 @@ public:
 
     QStringList institutions() const;
     QStringList categories() const;
+    //! Distinct currencies, most-used first, so the caller can default sensibly.
+    QStringList currencies() const;
     QDate earliestDate() const;
 
     //! Overrides the category for one row and marks it as user-set.

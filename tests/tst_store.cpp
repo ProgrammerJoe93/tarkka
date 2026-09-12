@@ -20,18 +20,21 @@ private slots:
     void summarisesByCategory();
     void buildsDailySeriesWithGaps();
     void leavesInternalTransfersOutOfTheTotals();
+    void neverSumsAcrossCurrencies();
+    void filtersByCurrency();
 
 private:
     Transaction make(const QString &id, const QDate &date, qint64 amount,
                      const QString &institution, const QString &category,
-                     const QString &counterparty = QStringLiteral("Shop")) const;
+                     const QString &counterparty = QStringLiteral("Shop"),
+                     const QString &currency = QStringLiteral("EUR")) const;
 
     QTemporaryDir m_directory;
 };
 
 Transaction TestStore::make(const QString &id, const QDate &date, qint64 amount,
                             const QString &institution, const QString &category,
-                            const QString &counterparty) const
+                            const QString &counterparty, const QString &currency) const
 {
     Transaction transaction;
     transaction.id = id;
@@ -44,7 +47,7 @@ Transaction TestStore::make(const QString &id, const QDate &date, qint64 amount,
     transaction.counterparty = counterparty;
     transaction.description = counterparty;
     transaction.amountMinor = amount;
-    transaction.currency = QStringLiteral("EUR");
+    transaction.currency = currency;
     transaction.category = category;
     transaction.status = QStringLiteral("BOOK");
     return transaction;
@@ -222,6 +225,62 @@ void TestStore::leavesInternalTransfersOutOfTheTotals()
     QCOMPARE(summary.rowCount(), 1);
     QCOMPARE(summary.data(summary.index(0, 0), SummaryModel::CategoryRole).toString(),
              QStringLiteral("Transport"));
+}
+
+void TestStore::neverSumsAcrossCurrencies()
+{
+    // Accounts in more than one country mean more than one currency. Adding
+    // ore to cents produces a number that is not money in any currency, so the
+    // summary must aggregate one currency and say it skipped the rest.
+    SummaryModel summary;
+    summary.setTransactions({
+        make("1", QDate(2026, 9, 1), -1000, "Nordea", "Groceries", "Shop", "EUR"),
+        make("2", QDate(2026, 9, 2), -2000, "Nordea", "Transport", "Shop", "EUR"),
+        make("3", QDate(2026, 9, 3), -50000, "SEB", "Groceries", "Butik", "SEK"),
+        make("4", QDate(2026, 9, 4), 400000, "SEB", "Income", "Lon", "SEK"),
+    });
+
+    // EUR has the most rows in this range, so it is what the totals describe.
+    QCOMPARE(summary.currency(), QStringLiteral("EUR"));
+    QCOMPARE(summary.totalSpentText(), Money::format(3000, "EUR"));
+    QCOMPARE(summary.totalReceivedText(), Money::format(0, "EUR"));
+    QVERIFY(summary.hasOtherCurrencies());
+
+    // The SEK grocery spend must not inflate the EUR grocery bucket.
+    QCOMPARE(summary.rowCount(), 2);
+    for (int row = 0; row < summary.rowCount(); ++row) {
+        const qint64 amount =
+            summary.data(summary.index(row, 0), SummaryModel::AmountMinorRole).toLongLong();
+        QVERIFY(amount < 50000);
+    }
+}
+
+void TestStore::filtersByCurrency()
+{
+    TransactionStore store;
+    QVERIFY(store.open(m_directory.filePath(QStringLiteral("g.sqlite"))));
+
+    store.upsert({
+        make("1", QDate(2026, 9, 1), -1000, "Nordea", "Groceries", "Shop", "EUR"),
+        make("2", QDate(2026, 9, 2), -2000, "Nordea", "Transport", "Shop", "EUR"),
+        make("3", QDate(2026, 9, 3), -48500, "SEB", "Groceries", "ICA", "SEK"),
+    });
+
+    // Most-used first, so the caller can default to it without guessing.
+    QCOMPARE(store.currencies(), QStringList({"EUR", "SEK"}));
+
+    TransactionStore::Filter swedish;
+    swedish.currency = QStringLiteral("SEK");
+    const TransactionList rows = store.query(swedish);
+    QCOMPARE(rows.size(), 1);
+    QCOMPARE(rows.first().amountMinor, -48500LL);
+
+    // Aggregating that slice reports SEK, with nothing skipped.
+    SummaryModel summary;
+    summary.setTransactions(rows);
+    QCOMPARE(summary.currency(), QStringLiteral("SEK"));
+    QCOMPARE(summary.totalSpentText(), Money::format(48500, "SEK"));
+    QVERIFY(!summary.hasOtherCurrencies());
 }
 
 QTEST_GUILESS_MAIN(TestStore)

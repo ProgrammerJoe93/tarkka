@@ -32,8 +32,13 @@ read them live. Nordea and Revolut both go through this single code path.
 
 Nothing in that path is bank-specific: the app fetches the supported bank list
 from `/aspsps` at runtime, so **any ASPSP Enable Banking covers works with no
-code change**. In Finland that includes S-Pankki, OP, Danske Bank, Aktia and
-Säästöpankki alongside Nordea. S-Pankki authenticates through S-mobiili, which
+code change**, in any of the ~30 countries they reach. In Finland that includes
+S-Pankki, OP, Danske Bank, Aktia and Säästöpankki alongside Nordea.
+
+**Accounts in several countries** work too. The country box next to *Load banks*
+picks which country's list to browse, so linking a Swedish or German account is
+the same flow run again — each consent is stored as its own session and a sync
+covers all of them. S-Pankki authenticates through S-mobiili, which
 is an ordinary redirect flow and needs no special handling.
 
 Several banks can be linked at once — each consent is stored as its own session
@@ -165,6 +170,11 @@ A few decisions worth knowing about:
   credit card bill, or topping up Revolut from your bank, appears once on each
   account; counting either leg would inflate both spending and income. The net
   card says how much was excluded.
+- **Currencies are never added together.** Minor units only mean anything
+  within one currency, so the dashboard shows exactly one at a time, defaulting
+  to whichever has the most rows, with a picker when there is more than one.
+  There is no FX conversion: an invented exchange rate would be a worse answer
+  than an honest per-currency total.
 - **Portfolio activity is not spending.** Share trades are excluded; dividends,
   interest and cashback are counted as income.
 - **Transaction direction follows the bank.** `credit_debit_indicator` decides

@@ -6,6 +6,34 @@
 
 #include <algorithm>
 
+namespace {
+
+/*!
+ * The currency carrying the most rows.
+ *
+ * Row count rather than value, so a single large foreign transfer cannot flip
+ * the whole dashboard into a currency the user barely uses. Ties break on the
+ * code so the choice is stable between runs.
+ */
+QString dominantCurrency(const TransactionList &transactions)
+{
+    QHash<QString, int> counts;
+    for (const Transaction &transaction : transactions)
+        counts[transaction.currency] += 1;
+
+    QString best;
+    int bestCount = 0;
+    for (auto it = counts.constBegin(); it != counts.constEnd(); ++it) {
+        if (it.value() > bestCount || (it.value() == bestCount && it.key() < best)) {
+            best = it.key();
+            bestCount = it.value();
+        }
+    }
+    return best;
+}
+
+} // namespace
+
 SummaryModel::SummaryModel(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -23,11 +51,16 @@ void SummaryModel::setTransactions(const TransactionList &transactions,
     m_totalReceivedMinor = 0;
     m_transferredMinor = 0;
     m_transferCount = 0;
-    m_currency.clear();
+    m_otherCurrencyCount = 0;
+    m_currency = dominantCurrency(transactions);
 
     for (const Transaction &transaction : transactions) {
-        if (m_currency.isEmpty())
-            m_currency = transaction.currency;
+        // Only one currency can be aggregated; the rest are counted and left
+        // out rather than added to a total they do not belong in.
+        if (transaction.currency != m_currency) {
+            ++m_otherCurrencyCount;
+            continue;
+        }
 
         /*
          * Money moved between the user's own accounts is not spending and not

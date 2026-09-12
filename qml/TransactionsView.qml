@@ -105,6 +105,37 @@ Item {
                 }
             }
 
+            ComboBox {
+                id: currencyFilter
+
+                // Only meaningful with accounts in more than one currency.
+                visible: AppController.currencies.length > 1
+                Layout.preferredWidth: visible ? 112 : 0
+                Layout.preferredHeight: 36
+                model: AppController.currencies
+                currentIndex: Math.max(0, AppController.currencies
+                                          .indexOf(AppController.currencyFilter))
+                onActivated: index => AppController.currencyFilter =
+                    AppController.currencies[index]
+
+                contentItem: Text {
+                    leftPadding: 10
+                    rightPadding: 24
+                    text: currencyFilter.displayText
+                    color: Theme.text
+                    font.pixelSize: Theme.fontSizeSmall
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+
+                background: Rectangle {
+                    radius: Theme.radiusSmall
+                    color: Theme.surface
+                    border.width: 1
+                    border.color: currencyFilter.activeFocus ? Theme.accent : Theme.border
+                }
+            }
+
             CheckBox {
                 id: spendOnlyBox
 

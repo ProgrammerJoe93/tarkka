@@ -41,6 +41,7 @@ class AppController : public QObject
     Q_PROPERTY(QVariantList banks READ banks NOTIFY banksChanged)
     Q_PROPERTY(QStringList institutions READ institutions NOTIFY dataChanged)
     Q_PROPERTY(QStringList categories READ categories NOTIFY dataChanged)
+    Q_PROPERTY(QStringList currencies READ currencies NOTIFY dataChanged)
 
     Q_PROPERTY(QDate dateFrom READ dateFrom WRITE setDateFrom NOTIFY filterChanged)
     Q_PROPERTY(QDate dateTo READ dateTo WRITE setDateTo NOTIFY filterChanged)
@@ -49,6 +50,8 @@ class AppController : public QObject
     Q_PROPERTY(QString categoryFilter READ categoryFilter WRITE setCategoryFilter
                    NOTIFY filterChanged)
     Q_PROPERTY(bool spendOnly READ spendOnly WRITE setSpendOnly NOTIFY filterChanged)
+    Q_PROPERTY(QString currencyFilter READ currencyFilter WRITE setCurrencyFilter
+                   NOTIFY filterChanged)
     Q_PROPERTY(QString rangeLabel READ rangeLabel NOTIFY filterChanged)
 
     Q_PROPERTY(bool configured READ isConfigured NOTIFY settingsChanged)
@@ -74,6 +77,7 @@ public:
     QVariantList banks() const { return m_banks; }
     QStringList institutions() const;
     QStringList categories() const;
+    QStringList currencies() const;
 
     QDate dateFrom() const { return m_filter.from; }
     void setDateFrom(const QDate &date);
@@ -85,6 +89,8 @@ public:
     void setCategoryFilter(const QString &category);
     bool spendOnly() const { return m_filter.spendOnly; }
     void setSpendOnly(bool spendOnly);
+    QString currencyFilter() const { return m_filter.currency; }
+    void setCurrencyFilter(const QString &currency);
     QString rangeLabel() const;
 
     bool isConfigured() const { return m_settings.isConfigured(); }
@@ -100,7 +106,14 @@ public:
     //! Sets the range to the last \a days days, ending today.
     Q_INVOKABLE void setLastDays(int days);
 
-    Q_INVOKABLE void loadBanks();
+    /*!
+     * Lists the banks available in \a countryCode.
+     *
+     * Accounts in several countries mean several ASPSP lists, so the country is
+     * a parameter of the browse rather than a fixed setting; passing an empty
+     * string falls back to the configured home country.
+     */
+    Q_INVOKABLE void loadBanks(const QString &countryCode = {});
     Q_INVOKABLE void connectBank(const QString &bankName, const QString &countryCode);
     Q_INVOKABLE void syncNow();
     Q_INVOKABLE void importStatement(const QUrl &fileUrl, const QString &institutionHint = {});

@@ -170,14 +170,36 @@ ScrollView {
                     Layout.fillWidth: true
                     spacing: Theme.spacing
 
+                    TextField {
+                        id: browseCountry
+
+                        Layout.preferredWidth: 64
+                        Layout.preferredHeight: 34
+                        text: AppController.country
+                        maximumLength: 2
+                        color: Theme.text
+                        selectByMouse: true
+
+                        Accessible.name: qsTr("Country to list banks for")
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Two-letter country code. Change it to link an "
+                                           + "account in another country.")
+
+                        background: Rectangle {
+                            radius: Theme.radiusSmall
+                            color: Theme.background
+                            border.width: 1
+                            border.color: browseCountry.activeFocus ? Theme.accent : Theme.border
+                        }
+                    }
+
                     Button {
                         id: connectButton
 
                         text: AppController.banks.length > 0
-                              ? qsTr("Refresh bank list") : qsTr("Load banks for %1")
-                                .arg(AppController.country)
+                              ? qsTr("Refresh bank list") : qsTr("Load banks")
                         enabled: AppController.configured && !AppController.busy
-                        onClicked: AppController.loadBanks()
+                        onClicked: AppController.loadBanks(browseCountry.text)
 
                         contentItem: Text {
                             text: connectButton.text

@@ -30,6 +30,9 @@ class SummaryModel : public QAbstractListModel
     Q_PROPERTY(QVariantList dailySpend READ dailySpend NOTIFY countChanged)
     Q_PROPERTY(QString transfersText READ transfersText NOTIFY countChanged)
     Q_PROPERTY(bool hasTransfers READ hasTransfers NOTIFY countChanged)
+    Q_PROPERTY(QString currency READ currency NOTIFY countChanged)
+    Q_PROPERTY(bool hasOtherCurrencies READ hasOtherCurrencies NOTIFY countChanged)
+    Q_PROPERTY(int otherCurrencyCount READ otherCurrencyCount NOTIFY countChanged)
 
 public:
     enum Role {
@@ -62,6 +65,20 @@ public:
     bool hasTransfers() const { return m_transferCount > 0; }
 
     /*!
+     * The currency every figure in this model is expressed in.
+     *
+     * Minor units are only comparable within one currency -- adding ore to
+     * cents yields a number that is not money at all -- so the model picks the
+     * currency carrying the most rows and reports how many it left out. In
+     * normal use the filter has already narrowed the data to one currency and
+     * nothing is skipped; this is what keeps a mistake visible instead of
+     * silently producing a wrong total.
+     */
+    QString currency() const { return m_currency; }
+    bool hasOtherCurrencies() const { return m_otherCurrencyCount > 0; }
+    int otherCurrencyCount() const { return m_otherCurrencyCount; }
+
+    /*!
      * One entry per day in the range: {"date", "amountMinor", "share"}.
      *
      * \c share is relative to the busiest day, which is what the sparkline
@@ -89,5 +106,6 @@ private:
     qint64 m_totalReceivedMinor = 0;
     qint64 m_transferredMinor = 0;
     int m_transferCount = 0;
+    int m_otherCurrencyCount = 0;
     QString m_currency;
 };
