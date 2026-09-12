@@ -61,19 +61,9 @@ ApplicationWindow {
                     Layout.bottomMargin: Theme.spacingLarge
                     spacing: 10
 
-                    Rectangle {
+                    BrandMark {
                         Layout.preferredWidth: 26
                         Layout.preferredHeight: 26
-                        radius: 8
-                        color: Theme.accent
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "€"
-                            color: Theme.background
-                            font.pixelSize: 15
-                            font.weight: Font.Bold
-                        }
                     }
 
                     Text {
@@ -162,19 +152,9 @@ ApplicationWindow {
                     anchors.rightMargin: window.pageMargin
                     spacing: 10
 
-                    Rectangle {
+                    BrandMark {
                         Layout.preferredWidth: 24
                         Layout.preferredHeight: 24
-                        radius: 7
-                        color: Theme.accent
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "€"
-                            color: Theme.background
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                        }
                     }
 
                     Text {

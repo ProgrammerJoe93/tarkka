@@ -15,6 +15,13 @@ int main(int argc, char *argv[])
     // desktop theme that would fight it.
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
+    // Qt picks the closest size from the set for title bars, task switchers
+    // and the like.
+    QIcon icon;
+    for (int size : {16, 24, 32, 48, 64, 128, 256})
+        icon.addFile(QStringLiteral(":/icons/tarkka-%1.png").arg(size));
+    QGuiApplication::setWindowIcon(icon);
+
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);

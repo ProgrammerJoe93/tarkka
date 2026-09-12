@@ -1,0 +1,16 @@
+<!--
+  Adaptive-icon foreground layer.
+
+  Deliberately not the same framing as logo.svg. An adaptive foreground is
+  108dp of which launchers may show as little as the central 66dp, so the tile
+  artwork's framing had its crossbar ends clipped by the circular mask. Here
+  the mark is scaled to 44% of the canvas and its bounding box centred on it,
+  which leaves the padding the platform expects and matches the optical weight
+  of the stock icons beside it.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <g fill="#0e1015">
+    <rect x="144" y="164" width="224" height="36" rx="18"/>
+    <rect x="238" y="164" width="36" height="184" rx="18"/>
+  </g>
+</svg>

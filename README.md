@@ -5,6 +5,8 @@ use into one place, and shows where the money actually went.
 
 *Tarkka* is Finnish for precise — and, said of a person, careful with money.
 
+<img src="assets/icons/tarkka-128.png" width="72" align="right" alt="">
+
 ![Dashboard](docs/dashboard.png)
 
 ## Getting your real data
@@ -131,6 +133,22 @@ guessing would silently mislabel rows and break the per-bank filter. Use the
 
 If a file does not import, the error message quotes the header row it found —
 that is usually enough to see which column alias is missing.
+
+## The icon
+
+`assets/logo.svg` is the source of truth: a geometric T, the crossbar reading as
+a datum line and the stem as the single figure resolved beneath it.
+
+Everything raster is generated from it by `tools/make-icons.sh` — desktop window
+icons and the Android mipmaps — so the mark cannot drift between platforms. The
+in-app version is drawn in QML from the same proportions rather than loaded as
+an image.
+
+Two things the design had to survive, both found by looking at it rather than
+reasoning about it: a **24px render**, which killed the variants with segmented
+crossbars and ruler ticks, and Android's **circular mask**, which clipped the
+first foreground layer's crossbar. The adaptive foreground is therefore framed
+separately from the square tile, at 44% of the canvas.
 
 ## Building
 

@@ -1,0 +1,22 @@
+<!--
+  Tarkka app icon.
+
+  A geometric T: the crossbar is a datum line and the stem the single figure
+  resolved beneath it. Deliberately plain — the name means "precise", and the
+  earlier attempts that added meaning (segmented crossbars, a tapered stem, a
+  foot on the stem) all read as either a broken T or the letter I once shrunk to
+  launcher size. Everything here survives a 24px render and a circular mask.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#93aeff"/>
+      <stop offset="1" stop-color="#6b8cf5"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tile)"/>
+  <g fill="#0e1015">
+    <rect x="106" y="150" width="300" height="48" rx="24"/>
+    <rect x="232" y="150" width="48" height="244" rx="24"/>
+  </g>
+</svg>

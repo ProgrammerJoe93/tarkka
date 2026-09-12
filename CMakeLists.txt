@@ -121,6 +121,7 @@ qt_add_qml_module(tarkka_core
         qml/ConnectView.qml
         qml/SettingsView.qml
         qml/components/NavButton.qml
+        qml/components/BrandMark.qml
         qml/components/NavIcon.qml
         qml/components/SummaryCard.qml
         qml/components/TransactionDelegate.qml
@@ -132,11 +133,30 @@ qt_add_qml_module(tarkka_core
 
 qt_add_executable(tarkka src/main.cpp)
 
+# The window icon must be a raster the window manager can consume, so the SVG
+# is pre-rendered by tools/make-icons.sh.
+qt_add_resources(tarkka "tarkka_icons"
+    PREFIX "/icons"
+    BASE assets/icons
+    FILES
+        assets/icons/tarkka-16.png
+        assets/icons/tarkka-24.png
+        assets/icons/tarkka-32.png
+        assets/icons/tarkka-48.png
+        assets/icons/tarkka-64.png
+        assets/icons/tarkka-128.png
+        assets/icons/tarkka-256.png
+)
+
 if(ANDROID)
     add_android_openssl_libraries(tarkka)
     set_target_properties(tarkka PROPERTIES
+        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android"
         QT_ANDROID_PACKAGE_NAME "fi.tarkka.app"
         QT_ANDROID_APP_NAME "Tarkka"
+        # Fills the icon placeholder in Qt's manifest template; without it the
+        # attribute is stripped and the app ships with no launcher icon at all.
+        QT_ANDROID_APP_ICON "@mipmap/ic_launcher"
         QT_ANDROID_TARGET_SDK_VERSION 35
         QT_ANDROID_MIN_SDK_VERSION 28
         QT_ANDROID_VERSION_NAME "${PROJECT_VERSION}"
