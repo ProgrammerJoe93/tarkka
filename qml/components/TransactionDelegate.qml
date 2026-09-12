@@ -27,6 +27,10 @@ ItemDelegate {
     width: ListView.view ? ListView.view.width : implicitWidth
     height: 64
 
+    //! Below this the bank column and the reference are dropped to keep the
+    //! merchant and the amount legible on a phone.
+    readonly property bool compact: width < 620
+
     Accessible.role: Accessible.ListItem
     Accessible.name: qsTr("%1, %2, %3, %4")
         .arg(delegate.dateText).arg(delegate.primaryText)
@@ -55,7 +59,7 @@ ItemDelegate {
         }
 
         Text {
-            Layout.preferredWidth: 74
+            Layout.preferredWidth: delegate.compact ? 52 : 74
             text: delegate.dateText
             color: Theme.textMuted
             font.pixelSize: Theme.fontSizeSmall
@@ -108,7 +112,8 @@ ItemDelegate {
         }
 
         Text {
-            Layout.preferredWidth: 96
+            visible: !delegate.compact
+            Layout.preferredWidth: visible ? 96 : 0
             text: delegate.institution
             color: Theme.textFaint
             font.pixelSize: Theme.fontSizeSmall
@@ -117,7 +122,8 @@ ItemDelegate {
         }
 
         Rectangle {
-            Layout.preferredWidth: categoryLabel.implicitWidth + 16
+            visible: !delegate.compact
+            Layout.preferredWidth: visible ? categoryLabel.implicitWidth + 16 : 0
             Layout.preferredHeight: 22
             radius: 11
             color: Qt.alpha(Theme.colorForCategory(delegate.category), 0.16)
@@ -140,7 +146,7 @@ ItemDelegate {
         }
 
         Text {
-            Layout.preferredWidth: 120
+            Layout.preferredWidth: delegate.compact ? 92 : 120
             text: delegate.amountText
             color: delegate.isSpend ? Theme.text : Theme.positive
             font.pixelSize: Theme.fontSizeBody

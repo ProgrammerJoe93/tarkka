@@ -23,8 +23,9 @@ ColumnLayout {
     }
 
     Text {
-        Layout.alignment: Qt.AlignHCenter
+        Layout.fillWidth: true
         Layout.maximumWidth: 420
+        Layout.alignment: Qt.AlignHCenter
         text: root.message
         color: Theme.textMuted
         font.pixelSize: Theme.fontSizeBody

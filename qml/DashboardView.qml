@@ -25,13 +25,16 @@ ScrollView {
 
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 spacing: 2
 
                 Text {
+                    Layout.fillWidth: true
                     text: AppController.rangeLabel
                     color: Theme.text
                     font.pixelSize: Theme.fontSizeTitle
                     font.weight: Font.DemiBold
+                    elide: Text.ElideRight
                 }
 
                 Text {
@@ -58,6 +61,9 @@ ScrollView {
                     }
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
                 }
             }
 

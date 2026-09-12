@@ -19,14 +19,23 @@ Item {
         anchors.fill: parent
         spacing: Theme.spacing
 
-        RowLayout {
+        GridLayout {
+            id: filterBar
+
+            // Wrap onto two rows rather than squeezing five controls across a
+            // phone; the search field always takes the full first row there.
+            readonly property bool narrow: view.width < 720
+
             Layout.fillWidth: true
-            spacing: Theme.spacing
+            columns: narrow ? 2 : 5
+            columnSpacing: Theme.spacing
+            rowSpacing: Theme.spacing
 
             TextField {
                 id: searchField
 
                 Layout.fillWidth: true
+                Layout.columnSpan: filterBar.narrow ? 2 : 1
                 Layout.preferredHeight: 36
                 placeholderText: qsTr("Search merchants, references, categories…")
                 text: AppController.transactions.searchText
@@ -46,6 +55,7 @@ Item {
             ComboBox {
                 id: bankFilter
 
+                Layout.fillWidth: filterBar.narrow
                 Layout.preferredWidth: 150
                 Layout.preferredHeight: 36
                 model: [qsTr("All banks")].concat(AppController.institutions)
@@ -77,6 +87,7 @@ Item {
             ComboBox {
                 id: categoryFilter
 
+                Layout.fillWidth: filterBar.narrow
                 Layout.preferredWidth: 180
                 Layout.preferredHeight: 36
                 model: [qsTr("All categories")].concat(AppController.categories)
@@ -110,6 +121,7 @@ Item {
 
                 // Only meaningful with accounts in more than one currency.
                 visible: AppController.currencies.length > 1
+                Layout.fillWidth: filterBar.narrow
                 Layout.preferredWidth: visible ? 112 : 0
                 Layout.preferredHeight: 36
                 model: AppController.currencies

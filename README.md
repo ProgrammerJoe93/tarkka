@@ -134,6 +134,8 @@ that is usually enough to see which column alias is missing.
 
 ## Building
 
+### Desktop
+
 Requires Qt 6.5+ (built against 6.11), CMake 3.21+, OpenSSL and a C++20
 compiler.
 
@@ -148,6 +150,41 @@ Run the tests with:
 ```sh
 ctest --test-dir build --output-on-failure
 ```
+
+### Android
+
+Needs the Qt for Android kits, an Android SDK with build-tools and a platform,
+and NDK 27. The UI switches to a bottom navigation bar and single-column cards
+below 760px, so the same code drives both.
+
+```sh
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+export ANDROID_SDK_ROOT=$HOME/Android/Sdk
+export ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/27.0.12077973
+
+~/Qt/6.11.1/android_arm64_v8a/bin/qt-cmake -S . -B build-android -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release -DQT_ANDROID_ABIS="arm64-v8a;x86_64"
+cmake --build build-android --target apk
+```
+
+The release APK comes out unsigned; sign it before installing:
+
+```sh
+BT=$ANDROID_SDK_ROOT/build-tools/35.0.0
+APK=build-android/android-build/build/outputs/apk/release/android-build-release-unsigned.apk
+$BT/zipalign -f -p 4 $APK aligned.apk
+$BT/apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android \
+    --ks-key-alias androiddebugkey --out tarkka.apk aligned.apk
+```
+
+Two Android-specific notes:
+
+- **Crypto.** Qt for Android ships no OpenSSL. Qt Network still needs it for
+  HTTPS, so the build pulls in KDAB's prebuilts and bundles them; point
+  `TARKKA_ANDROID_OPENSSL_DIR` at a local clone to build offline. RS256 token
+  signing does *not* use them — it goes through Android's own JCA, so there is
+  no second crypto implementation to keep patched.
+- **Java 21.** Newer JDKs are not accepted by the Gradle plugin Qt generates.
 
 ## How it is put together
 
@@ -204,6 +241,8 @@ A few decisions worth knowing about:
 | Category rules | `~/.local/share/tarkka/Tarkka/categories.json` |
 | Application ID, key path, sessions | `~/.config/tarkka/Tarkka.conf` |
 | Trading 212 key and secret | `~/.local/share/tarkka/Tarkka/trading212.key` (owner-only) |
+
+On Android the same files live inside the app's private storage.
 
 Nothing is sent anywhere except to the Enable Banking API, and the private key
 is read from the path you configure rather than copied into the app's own
