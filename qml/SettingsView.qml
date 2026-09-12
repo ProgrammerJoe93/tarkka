@@ -38,7 +38,10 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: qsTr("Register an application at enablebanking.com, upload the public " + "half of an RSA key pair, then link your own Nordea and Revolut " + "accounts to it. Only the path to the private key is stored here — " + "the key itself never leaves the file you point at.")
+                    text: qsTr("Register an application at enablebanking.com, upload the public "
+                               + "half of an RSA key pair, then link your own bank accounts to "
+                               + "it. Only the path to the private key is stored here — the key "
+                               + "itself never leaves the file you point at.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap
@@ -226,7 +229,7 @@ ScrollView {
 
                     contentItem: Text {
                         text: settingsButton2.text
-                        color: Theme.background
+                        color: Theme.textOnAccent
                         font.pixelSize: Theme.fontSizeSmall
                         font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignHCenter
@@ -355,7 +358,7 @@ ScrollView {
 
                         contentItem: Text {
                             text: saveKeyButton.text
-                            color: saveKeyButton.enabled ? Theme.background : Theme.textFaint
+                            color: saveKeyButton.enabled ? Theme.textOnAccent : Theme.textFaint
                             font.pixelSize: Theme.fontSizeSmall
                             font.weight: Font.DemiBold
                             horizontalAlignment: Text.AlignHCenter
@@ -396,6 +399,98 @@ ScrollView {
                             border.color: Theme.border
                         }
                     }
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: appearanceColumn.implicitHeight + 2 * Theme.spacingLarge
+            radius: Theme.radius
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.border
+
+            ColumnLayout {
+                id: appearanceColumn
+
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLarge
+                spacing: Theme.spacing
+
+                Text {
+                    text: qsTr("Appearance")
+                    color: Theme.text
+                    font.pixelSize: Theme.fontSizeBody
+                    font.weight: Font.DemiBold
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Follow the system and the app switches with it, the moment the "
+                               + "desktop or phone does. Pick a palette instead and it stays "
+                               + "put, here and on every later launch.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                }
+
+                SegmentedChoice {
+                    options: [
+                        { value: "system", label: qsTr("System") },
+                        { value: "light", label: qsTr("Light") },
+                        { value: "dark", label: qsTr("Dark") },
+                    ]
+                    current: AppController.appearance
+                    onChosen: value => AppController.appearance = value
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: languageColumn.implicitHeight + 2 * Theme.spacingLarge
+            radius: Theme.radius
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.border
+
+            ColumnLayout {
+                id: languageColumn
+
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLarge
+                spacing: Theme.spacing
+
+                Text {
+                    text: qsTr("Language")
+                    color: Theme.text
+                    font.pixelSize: Theme.fontSizeBody
+                    font.weight: Font.DemiBold
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Following the system picks the first of your preferred "
+                               + "languages this app has been translated into. Categories and "
+                               + "anything your bank wrote are left in the language they "
+                               + "arrived in.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                }
+
+                SegmentedChoice {
+                    // Each language is named in itself, so those two labels are
+                    // deliberately not translated: someone who has landed in a
+                    // language they cannot read needs to find their own by sight.
+                    options: [
+                        { value: "system", label: qsTr("System") },
+                        { value: "en", label: "English" },
+                        { value: "fi", label: "Suomi" },
+                    ]
+                    current: AppController.language
+                    onChosen: value => AppController.language = value
                 }
             }
         }

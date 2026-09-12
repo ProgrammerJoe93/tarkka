@@ -32,6 +32,25 @@ ApplicationWindow {
     title: qsTr("Tarkka")
     color: Theme.background
 
+    // Quick Controls draws whatever this file has not restyled -- the spin box
+    // steppers, combo box popups, dialog chrome, scrollbars -- from the
+    // palette rather than from Theme. Without this those pieces keep the
+    // desktop's own scheme and end up light on a dark window, or the reverse.
+    // It propagates to every item below, so it is set once, here.
+    palette.window: Theme.surface
+    palette.windowText: Theme.text
+    palette.base: Theme.background
+    palette.text: Theme.text
+    palette.placeholderText: Theme.textFaint
+    palette.button: Theme.surfaceRaised
+    palette.buttonText: Theme.text
+    palette.mid: Theme.borderStrong
+    palette.dark: Theme.textMuted
+    palette.highlight: Theme.accent
+    palette.highlightedText: Theme.textOnAccent
+    palette.toolTipBase: Theme.surfaceRaised
+    palette.toolTipText: Theme.text
+
     RowLayout {
         anchors.fill: parent
         spacing: 0
@@ -104,7 +123,7 @@ ApplicationWindow {
 
                     contentItem: Text {
                         text: syncButton.text
-                        color: syncButton.enabled ? Theme.background : Theme.textFaint
+                        color: syncButton.enabled ? Theme.textOnAccent : Theme.textFaint
                         font.pixelSize: Theme.fontSizeSmall
                         font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignHCenter
@@ -175,7 +194,7 @@ ApplicationWindow {
 
                         contentItem: Text {
                             text: compactSync.text
-                            color: compactSync.enabled ? Theme.background : Theme.textFaint
+                            color: compactSync.enabled ? Theme.textOnAccent : Theme.textFaint
                             font.pixelSize: Theme.fontSizeSmall
                             font.weight: Font.DemiBold
                             horizontalAlignment: Text.AlignHCenter

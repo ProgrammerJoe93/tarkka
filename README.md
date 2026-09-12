@@ -14,14 +14,14 @@ use into one place, and shows where the money actually went.
 This is the part worth reading before anything else, because the obvious route
 does not exist.
 
-**Neither bank will give you direct API access to your own personal accounts.**
-Nordea's Open Banking production API is gated behind a licensed PSD2 AISP
-registration with an eIDAS certificate, which an individual cannot obtain — its
-sandbox is open to anyone, but only serves fake data. Revolut has no personal
-account API at all; its Business API needs a Revolut Business account on the
-Grow plan or above, and its Open Banking API is for regulated third parties.
-Nordigen/GoCardless, which used to be the free workaround, closed to new
-signups in 2025.
+**Banks will not give you direct API access to your own personal accounts.**
+An Open Banking production API is gated behind a licensed PSD2 AISP
+registration with an eIDAS certificate, which an individual cannot obtain — the
+sandboxes are open to anyone, but only serve fake data. Some banks have no
+personal-account API at all; where a business API exists it wants a business
+account on a paid plan, and the Open Banking API is for regulated third
+parties. Nordigen/GoCardless, which used to be the free workaround, closed to
+new signups in 2025.
 
 So the app takes the two routes that actually work for a private individual:
 
@@ -30,12 +30,12 @@ So the app takes the two routes that actually work for a private individual:
 [Enable Banking](https://enablebanking.com) is a licensed account-information
 provider with self-serve signup. Its **restricted production** mode is designed
 for exactly this case: you link *your own* accounts to your own application and
-read them live. Nordea and Revolut both go through this single code path.
+read them live. Every account goes through this single code path.
 
 Nothing in that path is bank-specific: the app fetches the supported bank list
 from `/aspsps` at runtime, so **any ASPSP Enable Banking covers works with no
 code change**, in any of the ~30 countries they reach. In Finland that includes
-S-Pankki, OP, Danske Bank, Aktia and Säästöpankki alongside Nordea.
+S-Pankki, OP, Danske Bank, Aktia, Säästöpankki and Nordea.
 
 **Accounts in several countries** work too. The country box next to *Load banks*
 picks which country's list to browse, so linking a Swedish or German account is
@@ -71,8 +71,8 @@ is identified by the masked PAN the bank reports under `account_id.other`, and
 4. Activate the application in restricted mode by linking your own accounts.
 5. In **Settings**, enter the application ID, point at the private key, set your
    country, and save.
-6. In **Banks**, load the bank list, pick Nordea, complete the consent flow in
-   the browser, then do the same for Revolut. Hit **Sync now**.
+6. In **Banks**, load the bank list, pick your bank, complete the consent flow
+   in the browser, then repeat for each account you want. Hit **Sync now**.
 
 Consent lasts up to 90 days, after which the bank asks again.
 
@@ -120,19 +120,70 @@ alongside the bank name — without it sterling would be filed as euros and
 swallowed into the euro totals. A Trading 212 file is recognised from its
 header and gets the same treatment as an API-fetched one, including the same
 row ids, so importing a period you already synced changes nothing. Columns are
-matched by header name, covering Revolut's layout, the Finnish, Swedish and
-English variants of Nordea's export, and the shared Finnish vocabulary the
-other domestic banks use (`Maksupäivä`, `Summa`, `Saajan nimi`, `Selite` and so
-on). Rows already pulled from the API are not duplicated.
+matched by header name, covering the export layouts the parser carries
+signatures for, the Finnish, Swedish and English variants of the domestic
+exports, and the shared Finnish vocabulary most banks use (`Maksupäivä`,
+`Summa`, `Saajan nimi`, `Selite` and so on). Rows already pulled from the API
+are not duplicated.
 
-Only Nordea and Revolut can be identified from their headers alone — the
-remaining Finnish banks share too much column vocabulary to tell apart, and
-guessing would silently mislabel rows and break the per-bank filter. Use the
-**From** dropdown to name the bank when importing one of those; leave it on
-*Detect automatically* for Nordea and Revolut.
+Only a couple of export layouts can be identified from their headers alone —
+most banks share too much column vocabulary to tell apart, and guessing would
+silently mislabel rows and break the per-bank filter. Leave the **From**
+dropdown on *Detect automatically*, and name the bank yourself for any file it
+does not recognise.
 
 If a file does not import, the error message quotes the header row it found —
 that is usually enough to see which column alias is missing.
+
+## Appearance
+
+Dark or light, following the system by default, with **Settings → Appearance**
+to pin it either way. The choice survives a restart, and switching repaints the
+open window rather than asking to be reopened.
+
+Qt reads the system's colour scheme from whatever the desktop exposes: the
+`org.freedesktop.appearance` portal on GNOME, Cinnamon, XFCE, MATE and the
+rest, kdeglobals on KDE, and the device setting on Android. Both routes carry a
+change signal, so flipping the system theme is picked up live.
+
+Not every environment exposes one. LXQt and the tiling window managers (sway,
+i3, Hyprland) report *Unknown*, and the app stays dark there — pick a palette
+yourself, or start it with a portal-aware platform theme:
+
+```sh
+QT_QPA_PLATFORMTHEME=xdgdesktopportal
+```
+
+Both palettes live in `qml/Theme.qml` and nothing hard-codes a colour outside
+it. The window palette is bound to the same singleton, so the controls Qt draws
+for itself — spin box steppers, combo box popups, dialog chrome — change with
+everything else instead of keeping the desktop's own scheme.
+
+## Language
+
+The interface is in English or Finnish, and follows the system by default: it
+takes the first of the platform's preferred languages it has a catalogue for,
+and falls back to English. **Settings → Language** overrides that, and the
+choice survives a restart. Either way the switch applies immediately — the
+window is retranslated in place rather than asking to be reopened.
+
+Dates and decimal separators follow the same choice, so Finnish reads *syyskuu
+2026* and `0,00` instead of borrowing whatever the desktop is set to. Where the
+chosen language already matches the platform's, the platform's *region* is
+kept, so an en_GB desktop still gets 31/12 rather than 12/31.
+
+Two things stay in the language they arrived in. **Categories** are stored in
+the database and used as filter keys, so translating them would orphan every
+categorisation made so far; and anything the bank itself wrote is reproduced as
+sent.
+
+English is the source language and has no catalogue of its own —
+`i18n/tarkka_fi.ts` is the only one. After adding or changing a `qsTr()` or
+`tr()` string, re-extract with:
+
+```sh
+cmake --build build --target update_translations
+```
 
 ## The icon
 
@@ -231,11 +282,13 @@ src/
   data/        SQLite store + the models QML binds to
   net/         RS256 JWT signing (OpenSSL) and a small JSON HTTP client
   auth/        Loopback redirect listener, persisted settings
+  i18n/        Language resolution and catalogue switching
   providers/   EnableBankingProvider (banks), Trading212Provider (broker API)
                and CsvProvider (import), behind one Provider interface
   app/         AppController — the single object QML talks to
 qml/           Main window, four views, reusable components
-tests/         Unit tests for money, CSV, categorisation, storage and JWT
+tests/         Unit tests for money, CSV, categorisation, storage, JWT and
+               the enumerated settings
 ```
 
 Providers share one `Provider` interface and emit normalised `Transaction`
@@ -256,9 +309,9 @@ A few decisions worth knowing about:
 - **Pending rows are shown as pending** and are overwritten in place when the
   bank books them, including a corrected amount.
 - **Transfers between your own accounts are left out of the totals.** Paying a
-  credit card bill, or topping up Revolut from your bank, appears once on each
-  account; counting either leg would inflate both spending and income. The net
-  card says how much was excluded.
+  credit card bill, or moving money from one account to another, appears once
+  on each side; counting either leg would inflate both spending and income. The
+  net card says how much was excluded.
 - **Currencies are never added together.** Minor units only mean anything
   within one currency, so the dashboard shows exactly one at a time, defaulting
   to whichever has the most rows, with a picker when there is more than one.

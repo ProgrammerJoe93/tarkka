@@ -4,7 +4,8 @@ project(tarkka VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Network Sql)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Network Sql
+                                   LinguistTools)
 
 # Qt for Android ships no OpenSSL, and bundling a copy would mean shipping a
 # crypto library this app then has to keep patched. The Android build signs
@@ -51,6 +52,7 @@ set(TARKKA_SOURCES
     src/net/HttpClient.cpp
     src/auth/RedirectListener.cpp
     src/auth/Settings.cpp
+    src/i18n/Translation.cpp
     src/providers/EnableBankingProvider.cpp
     src/providers/CsvProvider.cpp
     src/providers/CsvParser.cpp
@@ -73,6 +75,7 @@ set(TARKKA_HEADERS
     src/net/HttpClient.h
     src/auth/RedirectListener.h
     src/auth/Settings.h
+    src/i18n/Translation.h
     src/providers/Provider.h
     src/providers/EnableBankingProvider.h
     src/providers/CsvProvider.h
@@ -98,6 +101,7 @@ target_include_directories(tarkka_core PUBLIC
     src/app
     src/core
     src/data
+    src/i18n
     src/net
     src/providers
 )
@@ -129,6 +133,7 @@ qt_add_qml_module(tarkka_core
         qml/components/SpendSparkline.qml
         qml/components/StatusBanner.qml
         qml/components/EmptyState.qml
+        qml/components/SegmentedChoice.qml
 )
 
 qt_add_executable(tarkka src/main.cpp)
@@ -152,7 +157,7 @@ if(ANDROID)
     add_android_openssl_libraries(tarkka)
     set_target_properties(tarkka PROPERTIES
         QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android"
-        QT_ANDROID_PACKAGE_NAME "fi.tarkka.app"
+        QT_ANDROID_PACKAGE_NAME "com.joegineered.tarkka"
         QT_ANDROID_APP_NAME "Tarkka"
         # Fills the icon placeholder in Qt's manifest template; without it the
         # attribute is stripped and the app ships with no launcher icon at all.
@@ -163,6 +168,18 @@ if(ANDROID)
         QT_ANDROID_VERSION_CODE 1
     )
 endif()
+
+# English is the source language and needs no catalogue, so Finnish is the only
+# .ts file. lupdate scans tarkka_core, which is where the QML and all but one
+# of the C++ sources live; the .qm is embedded in the executable so that the
+# Android package carries it without a second asset to install.
+qt_add_translations(tarkka
+    SOURCE_TARGETS tarkka_core
+    TS_FILES i18n/tarkka_fi.ts
+    RESOURCE_PREFIX "/i18n"
+    LUPDATE_OPTIONS -no-obsolete -locations none
+)
+
 target_compile_definitions(tarkka PRIVATE TARKKA_VERSION="${PROJECT_VERSION}")
 target_link_libraries(tarkka PRIVATE tarkka_core tarkka_coreplugin Qt6::Quick Qt6::QuickControls2)
 

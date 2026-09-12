@@ -1,3 +1,6 @@
+#include "auth/Settings.h"
+#include "i18n/Translation.h"
+
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
@@ -14,6 +17,11 @@ int main(int argc, char *argv[])
     // The app ships its own palette, so pin the style rather than inheriting a
     // desktop theme that would fight it.
     QQuickStyle::setStyle(QStringLiteral("Basic"));
+
+    // Before the engine loads anything: the first frame should already be in
+    // the right language rather than showing English and correcting itself.
+    // Needs the organisation and application names above to find the setting.
+    Translation::apply(Settings().language());
 
     // Qt picks the closest size from the set for title bars, task switchers
     // and the like.

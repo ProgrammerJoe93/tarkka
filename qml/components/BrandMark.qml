@@ -14,7 +14,7 @@ Item {
     id: brand
 
     property color tileColor: Theme.accent
-    property color markColor: Theme.background
+    property color markColor: Theme.textOnAccent
     property bool tile: true
 
     implicitWidth: 26

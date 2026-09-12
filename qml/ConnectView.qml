@@ -203,7 +203,7 @@ ScrollView {
 
                         contentItem: Text {
                             text: connectButton.text
-                            color: connectButton.enabled ? Theme.background : Theme.textFaint
+                            color: connectButton.enabled ? Theme.textOnAccent : Theme.textFaint
                             font.pixelSize: Theme.fontSizeSmall
                             font.weight: Font.DemiBold
                             horizontalAlignment: Text.AlignHCenter

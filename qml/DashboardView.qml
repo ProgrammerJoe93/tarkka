@@ -271,7 +271,8 @@ ScrollView {
                     visible: AppController.summary.count === 0
                     title: qsTr("Nothing here yet")
                     message: AppController.institutions.length === 0
-                             ? qsTr("Connect Nordea and Revolut, or import a statement file, " + "to see your purchases.")
+                             ? qsTr("Connect a bank account, or import a statement file, "
+                                    + "to see your purchases.")
                              : qsTr("No spending was recorded in %1.").arg(AppController.rangeLabel)
                     actionText: AppController.institutions.length === 0 ? qsTr("Connect a bank") : ""
                     onActionTriggered: view.connectRequested()

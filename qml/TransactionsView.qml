@@ -178,7 +178,7 @@ Item {
                         anchors.centerIn: parent
                         visible: spendOnlyBox.checked
                         text: "✓"
-                        color: Theme.background
+                        color: Theme.textOnAccent
                         font.pixelSize: 11
                         font.bold: true
                     }

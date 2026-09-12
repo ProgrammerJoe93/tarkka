@@ -64,7 +64,9 @@ inline qint64 fromDecimalString(QString text, bool *ok = nullptr)
 
 inline QString format(qint64 minor, const QString &currency)
 {
-    static const QLocale locale = QLocale::system();
+    // Deliberately not cached: the default locale changes with the interface
+    // language, and a static would pin the separators to whichever came first.
+    const QLocale locale;
     const QString number = locale.toString(static_cast<double>(minor) / 100.0, 'f', 2);
     return currency.isEmpty() ? number : number + QLatin1Char(' ') + currency;
 }

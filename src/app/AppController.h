@@ -61,6 +61,8 @@ class AppController : public QObject
     Q_PROPERTY(QString country READ country NOTIFY settingsChanged)
     Q_PROPERTY(QString redirectUrl READ redirectUrl NOTIFY settingsChanged)
     Q_PROPERTY(bool trading212Configured READ isTrading212Configured NOTIFY settingsChanged)
+    Q_PROPERTY(QString appearance READ appearance WRITE setAppearance NOTIFY appearanceChanged)
+    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
 
 public:
     explicit AppController(QObject *parent = nullptr);
@@ -100,6 +102,24 @@ public:
     QString country() const { return m_settings.country(); }
     QString redirectUrl() const;
     bool isTrading212Configured() const;
+    QString appearance() const { return m_settings.appearance(); }
+    /*!
+     * Chooses the palette: "system", "light" or "dark".
+     *
+     * Kept apart from the settingsChanged() family because every colour in the
+     * UI binds to it; folding it in would repaint the whole window each time a
+     * bank credential is saved.
+     */
+    void setAppearance(const QString &mode);
+    QString language() const { return m_settings.language(); }
+    /*!
+     * Chooses the interface language: "system", or a supported code.
+     *
+     * Applies immediately -- the window is retranslated in place rather than
+     * asking for a restart, which for a two-language picker is a wait nobody
+     * should have to sit through.
+     */
+    void setLanguage(const QString &language);
 
     //! Shifts the range to a whole month offset from the current one.
     Q_INVOKABLE void shiftMonth(int months);
@@ -150,6 +170,8 @@ signals:
     void dataChanged();
     void filterChanged();
     void settingsChanged();
+    void appearanceChanged();
+    void languageChanged();
 
 private:
     /*!

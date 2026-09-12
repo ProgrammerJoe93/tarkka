@@ -38,7 +38,7 @@ QVariant TransactionModel::data(const QModelIndex &index, int role) const
     case DateRole:
         return transaction.bookingDate;
     case DateTextRole:
-        return QLocale::system().toString(transaction.bookingDate, QLocale::ShortFormat);
+        return QLocale().toString(transaction.bookingDate, QLocale::ShortFormat);
     case DescriptionRole:
         return transaction.description;
     case CounterpartyRole:

@@ -5,6 +5,7 @@
 #include "auth/RedirectListener.h"
 #include "providers/EnableBankingProvider.h"
 #include "providers/Trading212Provider.h"
+#include "i18n/Translation.h"
 
 #include <QClipboard>
 #include <QFileInfo>
@@ -232,12 +233,19 @@ void AppController::setSpendOnly(bool spendOnly)
 
 QString AppController::rangeLabel() const
 {
-    const QLocale locale = QLocale::system();
+    // The default locale, not the system one: it tracks the chosen language.
+    const QLocale locale;
     const bool wholeMonth = m_filter.from.isValid() && m_filter.to.isValid()
                             && m_filter.from.day() == 1
                             && m_filter.to == m_filter.from.addMonths(1).addDays(-1);
-    if (wholeMonth)
-        return locale.toString(m_filter.from, QStringLiteral("MMMM yyyy"));
+    if (wholeMonth) {
+        // The standalone month name rather than what MMMM yields: Finnish
+        // inflects the month inside a date ("1. syyskuuta") but a heading
+        // wants the plain nominative ("syyskuu"). English spells both alike.
+        return QStringLiteral("%1 %2")
+            .arg(locale.standaloneMonthName(m_filter.from.month(), QLocale::LongFormat),
+                 QString::number(m_filter.from.year()));
+    }
 
     return QStringLiteral("%1 – %2")
         .arg(locale.toString(m_filter.from, QLocale::ShortFormat),
@@ -348,6 +356,36 @@ void AppController::saveCredentials(const QString &applicationId,
 
     emit settingsChanged();
     report(tr("Settings saved."), false);
+}
+
+void AppController::setAppearance(const QString &mode)
+{
+    // Compared after the write rather than before it: the setter normalises,
+    // so an unrecognised mode can leave the stored value exactly as it was.
+    const QString previous = m_settings.appearance();
+    m_settings.setAppearance(mode);
+    if (m_settings.appearance() != previous)
+        emit appearanceChanged();
+}
+
+void AppController::setLanguage(const QString &language)
+{
+    const QString previous = m_settings.language();
+    m_settings.setLanguage(language);
+    if (m_settings.language() == previous)
+        return;
+
+    Translation::apply(m_settings.language());
+    // qsTr() results are cached in the bindings that produced them, so without
+    // this the window keeps every string it was built with.
+    if (QQmlEngine *engine = qmlEngine(this))
+        engine->retranslate();
+    // Dates and amounts are formatted into the models rather than bound
+    // through qsTr(), so retranslating leaves them in the old locale; this
+    // re-reads them under the new one.
+    reload();
+    emit filterChanged();
+    emit languageChanged();
 }
 
 QString AppController::redirectUrl() const

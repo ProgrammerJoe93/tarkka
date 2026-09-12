@@ -44,7 +44,7 @@ ColumnLayout {
 
         contentItem: Text {
             text: actionButton.text
-            color: Theme.background
+            color: Theme.textOnAccent
             font.pixelSize: Theme.fontSizeBody
             font.weight: Font.DemiBold
             horizontalAlignment: Text.AlignHCenter

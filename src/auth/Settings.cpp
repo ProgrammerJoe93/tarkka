@@ -1,5 +1,7 @@
 #include "auth/Settings.h"
 
+#include "i18n/Translation.h"
+
 #include <QDir>
 #include <QFile>
 #include <QPair>
@@ -13,8 +15,42 @@ constexpr auto kPrivateKeyPath = "enablebanking/privateKeyPath";
 constexpr auto kRedirectPort = "enablebanking/redirectPort";
 constexpr auto kApiBaseUrl = "enablebanking/apiBaseUrl";
 constexpr auto kCountry = "enablebanking/country";
+constexpr auto kAppearance = "ui/appearance";
+constexpr auto kLanguage = "ui/language";
 constexpr auto kSessionIds = "enablebanking/sessionIds";
 constexpr auto kT212BaseUrl = "trading212/baseUrl";
+
+/*!
+ * Reads a setting that may only hold one of \a allowed.
+ *
+ * Anything else -- a value from a newer build, or a hand-edited config file --
+ * reads back as the first entry, which is "system" for both of these: the UI
+ * has to render with something, and deferring to the platform is the safest
+ * something.
+ */
+QString choice(const char *key, const QStringList &allowed)
+{
+    const QString value = QSettings().value(QLatin1String(key)).toString();
+    return allowed.contains(value) ? value : allowed.constFirst();
+}
+
+//! Writes a setting that may only hold one of \a allowed, normalising the rest.
+void setChoice(const char *key, const QStringList &allowed, const QString &value)
+{
+    const QString normalised = value.trimmed().toLower();
+    QSettings().setValue(QLatin1String(key),
+                         allowed.contains(normalised) ? normalised : allowed.constFirst());
+}
+
+QStringList appearanceModes()
+{
+    return {QStringLiteral("system"), QStringLiteral("light"), QStringLiteral("dark")};
+}
+
+QStringList languageChoices()
+{
+    return QStringList{QStringLiteral("system")} + Translation::supported();
+}
 
 QString dataDir()
 {
@@ -78,6 +114,26 @@ QString Settings::country() const
 void Settings::setCountry(const QString &code)
 {
     QSettings().setValue(QLatin1String(kCountry), code.trimmed().toUpper());
+}
+
+QString Settings::appearance() const
+{
+    return choice(kAppearance, appearanceModes());
+}
+
+void Settings::setAppearance(const QString &mode)
+{
+    setChoice(kAppearance, appearanceModes(), mode);
+}
+
+QString Settings::language() const
+{
+    return choice(kLanguage, languageChoices());
+}
+
+void Settings::setLanguage(const QString &language)
+{
+    setChoice(kLanguage, languageChoices(), language);
 }
 
 QStringList Settings::sessionIds() const

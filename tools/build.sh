@@ -9,7 +9,7 @@
 set -euo pipefail
 
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly APP_ID="fi.tarkka.app"
+readonly APP_ID="com.joegineered.tarkka"
 readonly ACTIVITY="org.qtproject.qt.android.bindings.QtActivity"
 
 platform="desktop"
