@@ -3,6 +3,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include "providers/Provider.h"
+
 #include <QTest>
 
 class TestEnableBanking : public QObject
@@ -10,6 +12,9 @@ class TestEnableBanking : public QObject
     Q_OBJECT
 
 private slots:
+    void clampsTheSyncWindowToToday();
+    void leavesAPastRangeAlone();
+    void widensTheStartForLateBookings();
     void identifiesAPaymentAccountByIban();
     void identifiesACreditCardByPan();
     void namesAnUnnamedCardAccount();
@@ -211,6 +216,38 @@ void TestEnableBanking::skipsRowsWithNoUsableDate()
 
     QCOMPARE(rows.size(), 1);
     QCOMPARE(rows.first().bookingDate, QDate(2026, 9, 6));
+}
+
+void TestEnableBanking::clampsTheSyncWindowToToday()
+{
+    // The default range is the whole current month, so for all but the last
+    // day of it the naive end date is in the future. S-Pankki rejects that
+    // with HTTP 422 "Wrong transaction period requested" where other banks
+    // quietly ignore it, which is why this is clamped rather than left to the
+    // bank to tolerate.
+    const QDate today(2026, 9, 12);
+    const SyncWindow window =
+        SyncWindow::forRange(QDate(2026, 9, 1), QDate(2026, 9, 30), today);
+
+    QCOMPARE(window.to, today);
+    QVERIFY(window.to <= today);
+}
+
+void TestEnableBanking::leavesAPastRangeAlone()
+{
+    // Browsing an earlier month must still fetch that month, not stop at today.
+    const SyncWindow window =
+        SyncWindow::forRange(QDate(2026, 3, 1), QDate(2026, 3, 31), QDate(2026, 9, 12));
+
+    QCOMPARE(window.to, QDate(2026, 4, 1));
+}
+
+void TestEnableBanking::widensTheStartForLateBookings()
+{
+    const SyncWindow window =
+        SyncWindow::forRange(QDate(2026, 9, 1), QDate(2026, 9, 30), QDate(2026, 9, 12));
+
+    QCOMPARE(window.from, QDate(2026, 8, 25));
 }
 
 QTEST_GUILESS_MAIN(TestEnableBanking)

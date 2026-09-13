@@ -33,15 +33,37 @@ ScrollView {
                 anchors.margins: Theme.spacingLarge
                 spacing: Theme.spacing
 
-                RowLayout {
+                // Wraps for the same reason as the row below: the title plus
+                // three actions do not fit a phone on one line, and in Finnish
+                // they do not fit on rather more screens than that.
+                Flow {
                     Layout.fillWidth: true
+                    spacing: Theme.spacing
 
                     Text {
-                        Layout.fillWidth: true
                         text: qsTr("Linked accounts")
                         color: Theme.text
                         font.pixelSize: Theme.fontSizeBody
                         font.weight: Font.DemiBold
+                    }
+
+                    Text {
+                        visible: AppController.accounts.count > 0
+                        text: qsTr("Export…")
+                        color: Theme.accent
+                        font.pixelSize: Theme.fontSizeSmall
+
+                        TapHandler { onTapped: exportDialog.open() }
+                        HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    }
+
+                    Text {
+                        text: qsTr("Import…")
+                        color: Theme.accent
+                        font.pixelSize: Theme.fontSizeSmall
+
+                        TapHandler { onTapped: importDialog.open() }
+                        HoverHandler { cursorShape: Qt.PointingHandCursor }
                     }
 
                     Text {
@@ -58,7 +80,9 @@ ScrollView {
                 Text {
                     Layout.fillWidth: true
                     visible: AppController.accounts.count === 0
-                    text: qsTr("No accounts are linked yet. Pick your bank below to start the " + "consent flow in your browser.")
+                    text: qsTr("No accounts are linked yet. Pick your bank below to start the "
+                               + "consent flow in your browser, or import connections exported "
+                               + "from another device.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap
@@ -166,15 +190,22 @@ ScrollView {
                     wrapMode: Text.WordWrap
                 }
 
-                RowLayout {
+                /*
+                 * A Flow rather than a RowLayout: these three are fixed-width,
+                 * and a row of them is wider than a phone. A RowLayout does not
+                 * shrink past its children's implicit widths, so the last
+                 * button simply ran off the side of the card. Wrapping costs a
+                 * line on a narrow screen and nothing on a wide one.
+                 */
+                Flow {
                     Layout.fillWidth: true
                     spacing: Theme.spacing
 
                     TextField {
                         id: browseCountry
 
-                        Layout.preferredWidth: 64
-                        Layout.preferredHeight: 34
+                        width: 64
+                        height: 34
                         text: AppController.country
                         maximumLength: 2
                         color: Theme.text
@@ -242,7 +273,6 @@ ScrollView {
                         }
                     }
 
-                    Item { Layout.fillWidth: true }
                 }
 
                 TextField {
@@ -348,12 +378,20 @@ ScrollView {
                     wrapMode: Text.WordWrap
                 }
 
-                RowLayout {
+                /*
+                 * Wraps like the rows above. A Flow top-aligns what it places,
+                 * so the two labels carry the controls' height and centre their
+                 * text within it; without that they would ride the top of a
+                 * 34-pixel row.
+                 */
+                Flow {
                     Layout.fillWidth: true
                     spacing: Theme.spacing
 
                     Text {
                         text: qsTr("From")
+                        height: 34
+                        verticalAlignment: Text.AlignVCenter
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSizeSmall
                     }
@@ -361,8 +399,8 @@ ScrollView {
                     ComboBox {
                         id: importInstitution
 
-                        Layout.preferredWidth: 200
-                        Layout.preferredHeight: 34
+                        width: 200
+                        height: 34
                         editable: true
                         // Nordea and Revolut exports are recognised from their
                         // headers; the other Finnish banks share too much
@@ -385,6 +423,12 @@ ScrollView {
                             selectByMouse: true
                             background: null
                             onTextEdited: importInstitution.editText = text
+                            // A value wider than the field leaves the cursor at
+                            // its end, which scrolls the start out of view --
+                            // Finnish "Tunnista automaattisesti" then reads as
+                            // "nnista automaattisesti". Only while unfocused,
+                            // so it does not fight someone typing.
+                            onTextChanged: if (!activeFocus) cursorPosition = 0
                         }
 
                         background: Rectangle {
@@ -398,6 +442,8 @@ ScrollView {
 
                     Text {
                         text: qsTr("in")
+                        height: 34
+                        verticalAlignment: Text.AlignVCenter
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSizeSmall
                     }
@@ -405,8 +451,8 @@ ScrollView {
                     TextField {
                         id: importCurrency
 
-                        Layout.preferredWidth: 64
-                        Layout.preferredHeight: 34
+                        width: 64
+                        height: 34
                         text: "EUR"
                         maximumLength: 3
                         color: Theme.text
@@ -425,7 +471,6 @@ ScrollView {
                         }
                     }
 
-                    Item { Layout.fillWidth: true }
                 }
 
                 Button {
@@ -455,10 +500,55 @@ ScrollView {
     }
 
     FileDialog {
+        id: exportDialog
+
+        title: qsTr("Save the bank connections")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        /*
+         * Android's picker offers no filter selector, so the first name filter
+         * becomes a MIME filter for the whole dialog and everything outside it
+         * is greyed out rather than merely deprioritised. Desktop keeps the
+         * filter.
+         */
+        nameFilters: Qt.platform.os === "android"
+                     ? [qsTr("All files (*)")]
+                     : [qsTr("Tarkka connections (*.json)"), qsTr("All files (*)")]
+        onAccepted: AppController.exportConnection(selectedFile)
+    }
+
+    FileDialog {
+        id: importDialog
+
+        title: qsTr("Choose exported bank connections")
+        /*
+         * Android's picker offers no filter selector, so the first name filter
+         * becomes a MIME filter for the whole dialog and everything outside it
+         * is greyed out rather than merely deprioritised. Desktop keeps the
+         * filter.
+         */
+        nameFilters: Qt.platform.os === "android"
+                     ? [qsTr("All files (*)")]
+                     : [qsTr("Tarkka connections (*.json)"), qsTr("All files (*)")]
+        onAccepted: AppController.importConnection(selectedFile)
+    }
+
+    FileDialog {
         id: fileDialog
 
         title: qsTr("Choose a bank statement")
-        nameFilters: [qsTr("Statement files (*.csv *.txt *.tsv)"), qsTr("All files (*)")]
+        /*
+         * Android's picker offers no filter selector, so the first name filter
+         * becomes a MIME filter for the whole dialog and everything outside it
+         * is greyed out rather than merely deprioritised. Neither .pem nor
+         * .tsv has a MIME type the document providers agree on -- a plain .csv
+         * often arrives as application/octet-stream too -- so restricting here
+         * makes the file unpickable, which pushes the user into typing a path
+         * that scoped storage then refuses to open. Desktop keeps the filter.
+         */
+        nameFilters: Qt.platform.os === "android"
+                     ? [qsTr("All files (*)")]
+                     : [qsTr("Statement files (*.csv *.txt *.tsv)"), qsTr("All files (*)")]
         onAccepted: AppController.importStatement(selectedFile,
                                                   importInstitution.institutionHint,
                                                   importCurrency.text)

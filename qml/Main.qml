@@ -8,8 +8,20 @@ import Tarkka
 ApplicationWindow {
     id: window
 
+    /*
+     * Named rather than written as literals at each call site: the pages array
+     * and the StackLayout children have to stay in step, and inserting a view
+     * silently renumbered every navigation that used a bare index.
+     */
+    readonly property int dashboardPage: 0
+    readonly property int trendsPage: 1
+    readonly property int transactionsPage: 2
+    readonly property int banksPage: 3
+    readonly property int settingsPage: 4
+
     readonly property var pages: [
         { title: qsTr("Dashboard"), glyph: "dashboard" },
+        { title: qsTr("Trends"), glyph: "trend" },
         { title: qsTr("Transactions"), glyph: "list" },
         { title: qsTr("Banks"), glyph: "card" },
         { title: qsTr("Settings"), glyph: "gear" }
@@ -251,21 +263,23 @@ ApplicationWindow {
                     Layout.preferredWidth: 0
                     Layout.minimumHeight: 0
                     Layout.preferredHeight: 0
-                    currentIndex: 0
+                    currentIndex: window.dashboardPage
 
                     DashboardView {
-                        onTransactionsRequested: stack.currentIndex = 1
-                        onConnectRequested: stack.currentIndex = 2
+                        onTransactionsRequested: stack.currentIndex = window.transactionsPage
+                        onConnectRequested: stack.currentIndex = window.banksPage
                         onCategorySelected: category => {
                             AppController.categoryFilter = category;
-                            stack.currentIndex = 1;
+                            stack.currentIndex = window.transactionsPage;
                         }
                     }
+
+                    TrendsView {}
 
                     TransactionsView {}
 
                     ConnectView {
-                        onSettingsRequested: stack.currentIndex = 3
+                        onSettingsRequested: stack.currentIndex = window.settingsPage
                     }
 
                     SettingsView {}

@@ -215,6 +215,8 @@ Item {
                         categoryDialog.currentCategory = category;
                         categoryDialog.open();
                     }
+                    onExcludeToggleRequested: (transactionId, excluded) =>
+                        AppController.setTransactionExcluded(transactionId, excluded)
                 }
             }
 

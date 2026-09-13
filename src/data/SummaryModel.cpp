@@ -46,11 +46,14 @@ void SummaryModel::setTransactions(const TransactionList &transactions,
     beginResetModel();
 
     QHash<QString, Bucket> byCategory;
+    QHash<QString, CategoryTotalsModel::Bucket> byIncomeCategory;
     QHash<QDate, qint64> byDay;
     m_totalSpentMinor = 0;
     m_totalReceivedMinor = 0;
     m_transferredMinor = 0;
     m_transferCount = 0;
+    m_excludedMinor = 0;
+    m_excludedCount = 0;
     m_otherCurrencyCount = 0;
     m_currency = dominantCurrency(transactions);
 
@@ -59,6 +62,19 @@ void SummaryModel::setTransactions(const TransactionList &transactions,
         // out rather than added to a total they do not belong in.
         if (transaction.currency != m_currency) {
             ++m_otherCurrencyCount;
+            continue;
+        }
+
+        /*
+         * Rows the user has set aside are left out of every figure here --
+         * totals, category buckets and the daily series alike -- so that
+         * excluding a row means the same thing everywhere it could show up.
+         * Checked before the transfer rule so that the counts stay disjoint
+         * and the caption cannot report one amount twice.
+         */
+        if (transaction.excluded) {
+            m_excludedMinor += qAbs(transaction.amountMinor);
+            ++m_excludedCount;
             continue;
         }
 
@@ -76,6 +92,14 @@ void SummaryModel::setTransactions(const TransactionList &transactions,
 
         if (transaction.amountMinor >= 0) {
             m_totalReceivedMinor += transaction.amountMinor;
+            // A zero-amount row is neither income nor spending; bucketing it
+            // would add a category to the list that contributes nothing.
+            if (transaction.amountMinor > 0) {
+                CategoryTotalsModel::Bucket &bucket = byIncomeCategory[transaction.category];
+                bucket.category = transaction.category;
+                bucket.amountMinor += transaction.amountMinor;
+                ++bucket.transactionCount;
+            }
             continue;
         }
 
@@ -91,6 +115,8 @@ void SummaryModel::setTransactions(const TransactionList &transactions,
     }
 
     buildDailySeries(byDay, from, to);
+
+    m_income.setBuckets(byIncomeCategory.values(), m_currency);
 
     m_buckets = byCategory.values();
     // Largest first, then by name. Without the tie-break, two categories with
@@ -204,6 +230,13 @@ QString SummaryModel::transfersText() const
 {
     // Each leg is counted, so halve it to report the amount actually moved.
     return Money::format(m_transferredMinor / 2, m_currency);
+}
+
+QString SummaryModel::excludedText() const
+{
+    // Not halved the way transfers are: these rows are individual judgements,
+    // not two legs of one movement, so each amount is missing exactly once.
+    return Money::format(m_excludedMinor, m_currency);
 }
 
 QString SummaryModel::largestCategory() const

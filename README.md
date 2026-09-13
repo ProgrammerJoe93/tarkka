@@ -59,15 +59,30 @@ just run the connect flow twice.
 is identified by the masked PAN the bank reports under `account_id.other`, and
 `cash_account_type: CARD` is used to label it in the account list.
 
-1. Register an application in the Enable Banking control panel.
-2. Generate an RSA key pair and upload the public half:
+1. Register an application in the Enable Banking control panel. Leave **Private
+   key creation** on its default: the browser generates the pair and downloads
+   the private half as `<application-id>.pem`. There is nothing to upload, and
+   no public key to paste anywhere.
+2. Move that file somewhere you keep secrets and lock it down — the app stores
+   only its *path*, and never copies the key itself:
    ```sh
-   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out enablebanking.pem
-   openssl rsa -in enablebanking.pem -pubout -out enablebanking.pub
+   mv ~/Downloads/<application-id>.pem ~/.config/tarkka/enablebanking.pem
+   chmod 600 ~/.config/tarkka/enablebanking.pem
    ```
-   Keep `enablebanking.pem` private — the app only stores its *path*.
+   The filename you downloaded *is* the application ID, which is the other
+   thing Settings asks for. A key you generated yourself will authenticate
+   against nothing and the API answers `Wrong signature`.
 3. Whitelist the redirect URL the Settings screen shows you
-   (`http://127.0.0.1:8765/callback` by default).
+   (`https://localhost:8765/callback` by default).
+
+   The control panel is picky here, and not in the way RFC 8252 would lead you
+   to expect: plain `http` is refused as an *unsupported scheme*, and the
+   numeric `https://127.0.0.1:8765/...` as an *invalid URL*. Only the named
+   loopback host over HTTPS is accepted, which is why the app serves TLS on a
+   port that never leaves the machine. Your browser will warn the first time —
+   the certificate is self-signed, because nobody issues certificates for
+   `localhost`. Accept it once and the exception sticks, because the pair is
+   generated once and kept rather than minted per run.
 4. Activate the application in restricted mode by linking your own accounts.
 5. In **Settings**, enter the application ID, point at the private key, set your
    country, and save.
@@ -75,6 +90,19 @@ is identified by the masked PAN the bank reports under `account_id.other`, and
    in the browser, then repeat for each account you want. Hit **Sync now**.
 
 Consent lasts up to 90 days, after which the bank asks again.
+
+**Syncing on a second device.** A session belongs to the Enable Banking
+application rather than to the machine that created it, so any device holding
+that application's private key can read the accounts behind it. Connecting a
+bank needs the consent redirect, which only the desktop can serve — but syncing
+one does not. **Banks → Export…** writes the application id and session ids to
+a small JSON file; **Import…** merges them on the other device. Put that file
+wherever both devices can see it, move the private key across separately, point
+Settings at it, and sync.
+
+The key is deliberately left out of the file, so a copy sitting in cloud storage
+is not on its own enough to reach an account. Databases stay per-device: this
+shares the *connections*, not the transactions.
 
 ### 2. Trading 212 (its own API)
 
@@ -279,14 +307,14 @@ Two Android-specific notes:
 ```
 src/
   core/        Transaction value type, integer money, merchant categorisation
-  data/        SQLite store + the models QML binds to
+  data/        SQLite store + the models QML binds to, month-on-month trends
   net/         RS256 JWT signing (OpenSSL) and a small JSON HTTP client
   auth/        Loopback redirect listener, persisted settings
   i18n/        Language resolution and catalogue switching
   providers/   EnableBankingProvider (banks), Trading212Provider (broker API)
                and CsvProvider (import), behind one Provider interface
   app/         AppController — the single object QML talks to
-qml/           Main window, four views, reusable components
+qml/           Main window, five views, reusable components
 tests/         Unit tests for money, CSV, categorisation, storage, JWT and
                the enumerated settings
 ```
@@ -312,6 +340,28 @@ A few decisions worth knowing about:
   credit card bill, or moving money from one account to another, appears once
   on each side; counting either leg would inflate both spending and income. The
   net card says how much was excluded.
+- **Money coming in is grouped the same way money going out is**, in *Where the
+  money came from* beneath the spending breakdown. Both are filled from one pass
+  over the same rows, so the two halves cannot disagree about which rows count:
+  a transfer between your own accounts is not income any more than it is
+  spending, and a row you set aside is missing from both. The card is hidden
+  outright in a month with nothing coming in, rather than sitting there empty.
+- **Months are compared against each other** in **Trends**: total spending for
+  the six months up to the one on show, and each category's figure across the
+  same window with its change against the previous month. It counts exactly
+  what the dashboard counts — outgoing rows, one currency, transfers and
+  hand-excluded rows left out — so the two screens cannot disagree about the
+  same month. A change of under a unit of currency reports no direction, and so
+  does a month with nothing before it to compare against: the first month you
+  sync is not a verdict.
+- **Any row can be left out by hand**, for the ones no rule will catch — an
+  expense you were reimbursed for, a one-off that would distort the month. The
+  ⊘ button at the end of a row toggles it; the row stays in the list, dimmed
+  and struck through, because a row you cannot see is a row you cannot put
+  back. It drops out of the totals, the category bars and the daily series
+  alike, the net card reports the amount separately from transfers so the two
+  are never confused, and the choice survives re-sync the way a hand-set
+  category does.
 - **Currencies are never added together.** Minor units only mean anything
   within one currency, so the dashboard shows exactly one at a time, defaulting
   to whichever has the most rows, with a picker when there is more than one.
@@ -332,11 +382,16 @@ A few decisions worth knowing about:
 | Application ID, key path, sessions | `~/.config/tarkka/Tarkka.conf` |
 | Trading 212 key and secret | `~/.local/share/tarkka/Tarkka/trading212.key` (owner-only) |
 
-On Android the same files live inside the app's private storage.
+On Android the same set of files lives inside the app's private storage. They
+are that device's own copy: **there is no sync between devices**, so a bank
+connected on the desktop does not appear on the phone, and transactions
+imported on one are invisible to the other.
 
-Nothing is sent anywhere except to the Enable Banking API, and the private key
-is read from the path you configure rather than copied into the app's own
-storage.
+Nothing is sent anywhere except to the Enable Banking API. On the desktop the
+private key is read from the path you configure rather than copied, so the only
+copy stays where you put it. Android has no choice: a file chosen through the
+system picker is readable only while that grant lasts, so the key is copied
+into the app's private storage when you select it.
 
 Edit `categories.json` to change how purchases are grouped — it is a plain
 `{"Category": ["regex", ...]}` map, applied in order, first match wins.

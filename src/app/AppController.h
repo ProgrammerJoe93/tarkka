@@ -4,6 +4,7 @@
 #include "core/Categoriser.h"
 #include "data/AccountModel.h"
 #include "data/SummaryModel.h"
+#include "data/TrendsModel.h"
 #include "data/TransactionFilterModel.h"
 #include "data/TransactionModel.h"
 #include "data/TransactionStore.h"
@@ -32,6 +33,7 @@ class AppController : public QObject
 
     Q_PROPERTY(TransactionFilterModel *transactions READ transactions CONSTANT)
     Q_PROPERTY(SummaryModel *summary READ summary CONSTANT)
+    Q_PROPERTY(TrendsModel *trends READ trends CONSTANT)
     Q_PROPERTY(AccountModel *accounts READ accounts CONSTANT)
 
     Q_PROPERTY(bool busy READ isBusy NOTIFY busyChanged)
@@ -70,6 +72,9 @@ public:
 
     TransactionFilterModel *transactions() { return &m_filterModel; }
     SummaryModel *summary() { return &m_summaryModel; }
+    TrendsModel *trends() { return &m_trendsModel; }
+    //! How many months the comparison spans, the shown month included.
+    static constexpr int trendMonths = 6;
     AccountModel *accounts();
 
     bool isBusy() const { return m_busy; }
@@ -147,7 +152,25 @@ public:
                                      const QString &institutionHint = {},
                                      const QString &defaultCurrency = {});
     Q_INVOKABLE void setTransactionCategory(const QString &transactionId, const QString &category);
+    /*!
+     * Leaves one row out of the totals, or puts it back.
+     *
+     * The row stays in the list either way -- marked, not hidden -- because a
+     * row you cannot see is a row you cannot put back.
+     */
+    Q_INVOKABLE void setTransactionExcluded(const QString &transactionId, bool excluded);
     Q_INVOKABLE void disconnectAll();
+    /*!
+     * Writes this device's bank connections to \a fileUrl.
+     *
+     * Sessions belong to the Enable Banking application rather than to a
+     * device, so importing the file elsewhere lets that device sync banks it
+     * could not have connected itself. The private key is not included; see
+     * ConnectionFile.
+     */
+    Q_INVOKABLE void exportConnection(const QUrl &fileUrl);
+    //! Merges the connections in \a fileUrl into this device's.
+    Q_INVOKABLE void importConnection(const QUrl &fileUrl);
     /*!
      * Persists the credentials.
      *
@@ -186,6 +209,8 @@ private:
     void report(const QString &message, bool isError = false);
     void ingest(const TransactionList &transactions);
     void reload();
+    //! Rebuilds the month-on-month comparison for the window ending at the shown month.
+    void refreshTrends();
 
     Settings m_settings;
     Categoriser m_categoriser;
@@ -195,6 +220,7 @@ private:
     TransactionModel m_transactionModel;
     TransactionFilterModel m_filterModel;
     SummaryModel m_summaryModel;
+    TrendsModel m_trendsModel;
 
     EnableBankingProvider *m_bank = nullptr;
     CsvProvider *m_csv = nullptr;

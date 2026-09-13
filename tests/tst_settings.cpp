@@ -2,6 +2,8 @@
 #include "i18n/Translation.h"
 
 #include <QCoreApplication>
+#include <QFile>
+#include <QTemporaryDir>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTest>
@@ -19,6 +21,7 @@ private slots:
     void fallsBackToSystemOnAnUnknownMode();
     void readsAnUnknownStoredValueAsSystem();
 
+    void keepsTheKeyWhereItIsOnDesktop();
     void languageDefaultsToFollowingTheSystem();
     void languageRoundTripsEachSupportedCode();
     void languageFallsBackToSystemOnAnUnknownCode();
@@ -75,6 +78,26 @@ void TestSettings::readsAnUnknownStoredValueAsSystem()
 {
     QSettings().setValue(QStringLiteral("ui/appearance"), QStringLiteral("chartreuse"));
     QCOMPARE(Settings().appearance(), QStringLiteral("system"));
+}
+
+void TestSettings::keepsTheKeyWhereItIsOnDesktop()
+{
+    // Android copies the key into app storage because a picked document stops
+    // being readable; every other platform must keep referencing it in place,
+    // so that nothing secret is duplicated behind the user's back.
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("key.pem"));
+    QFile key(path);
+    QVERIFY(key.open(QIODevice::WriteOnly));
+    key.write("-----BEGIN PRIVATE KEY-----\nnot a real key\n-----END PRIVATE KEY-----\n");
+    key.close();
+
+    Settings settings;
+    QString errorMessage;
+    QVERIFY2(settings.setPrivateKeyPath(path, &errorMessage), qPrintable(errorMessage));
+    QCOMPARE(settings.privateKeyPath(), path);
+    QVERIFY(!settings.readPrivateKey().isEmpty());
 }
 
 void TestSettings::languageDefaultsToFollowingTheSystem()

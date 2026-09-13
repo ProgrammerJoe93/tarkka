@@ -183,10 +183,24 @@ ScrollView {
                 Layout.fillHeight: true
                 label: qsTr("NET")
                 value: AppController.summary.netText
-                caption: AppController.summary.hasTransfers
-                         ? qsTr("Excludes %1 moved between your accounts")
-                           .arg(AppController.summary.transfersText)
-                         : qsTr("Income minus spending")
+                // Transfers and hand-excluded rows are both missing from the
+                // figure, for different reasons, so the caption names whichever
+                // applies rather than lumping them into one number the user
+                // cannot account for.
+                caption: {
+                    const summary = AppController.summary;
+                    if (summary.hasTransfers && summary.hasExcluded) {
+                        return qsTr("Excludes %1 moved between your accounts and %2 you left out")
+                            .arg(summary.transfersText).arg(summary.excludedText);
+                    }
+                    if (summary.hasTransfers) {
+                        return qsTr("Excludes %1 moved between your accounts")
+                            .arg(summary.transfersText);
+                    }
+                    if (summary.hasExcluded)
+                        return qsTr("Excludes %1 you left out").arg(summary.excludedText);
+                    return qsTr("Income minus spending");
+                }
             }
         }
 
@@ -276,6 +290,55 @@ ScrollView {
                              : qsTr("No spending was recorded in %1.").arg(AppController.rangeLabel)
                     actionText: AppController.institutions.length === 0 ? qsTr("Connect a bank") : ""
                     onActionTriggered: view.connectRequested()
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: incomeColumn.implicitHeight + 2 * Theme.spacingLarge
+            // Hidden rather than shown empty: most months have one salary and
+            // nothing else, and a card saying so would be noise on every one of
+            // them. A month with no income at all has nothing to say here.
+            visible: AppController.summary.income.count > 0
+            radius: Theme.radius
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.border
+
+            ColumnLayout {
+                id: incomeColumn
+
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLarge
+                spacing: Theme.spacing
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Where the money came from")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.letterSpacing: 0.6
+                    }
+
+                    Text {
+                        text: qsTr("See all")
+                        color: Theme.accent
+                        font.pixelSize: Theme.fontSizeSmall
+
+                        TapHandler { onTapped: view.transactionsRequested() }
+                        HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    }
+                }
+
+                CategoryBars {
+                    Layout.fillWidth: true
+                    model: AppController.summary.income
+                    incoming: true
+                    onCategoryActivated: category => view.categorySelected(category)
                 }
             }
         }

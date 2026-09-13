@@ -78,9 +78,56 @@ QString Settings::privateKeyPath() const
     return QSettings().value(QLatin1String(kPrivateKeyPath)).toString();
 }
 
-void Settings::setPrivateKeyPath(const QString &path)
+bool Settings::setPrivateKeyPath(const QString &path, QString *errorMessage)
 {
-    QSettings().setValue(QLatin1String(kPrivateKeyPath), path.trimmed());
+    const QString trimmed = path.trimmed();
+
+#ifdef Q_OS_ANDROID
+    // See the header: a picked document is readable now and quite possibly not
+    // later, so take the copy while the grant still stands. Skipped when the
+    // path already points into our own storage, which is what a second save of
+    // an unchanged field hands back.
+    if (!trimmed.isEmpty() && !trimmed.startsWith(dataDir())) {
+        QFile source(trimmed);
+        if (!source.open(QIODevice::ReadOnly)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Cannot read the private key at %1: %2")
+                                    .arg(trimmed, source.errorString());
+                // A typed path can never work here, however correct it looks in
+                // a file manager, so point at the only route that can.
+                if (!trimmed.startsWith(QLatin1String("content://"))) {
+                    *errorMessage += QStringLiteral(" Android only lets an app open files the "
+                                                    "user picks, so use Browse… rather than "
+                                                    "typing the path.");
+                }
+            }
+            return false;
+        }
+        const QByteArray key = source.readAll();
+
+        const QString destination = dataDir() + QStringLiteral("/enablebanking.pem");
+        QFile copy(destination);
+        if (!copy.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Cannot store the private key in %1: %2")
+                                    .arg(destination, copy.errorString());
+            }
+            return false;
+        }
+        // Narrow the permissions before the key is written, not after.
+        copy.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        copy.write(key);
+        copy.close();
+
+        QSettings().setValue(QLatin1String(kPrivateKeyPath), destination);
+        return true;
+    }
+#else
+    Q_UNUSED(errorMessage);
+#endif
+
+    QSettings().setValue(QLatin1String(kPrivateKeyPath), trimmed);
+    return true;
 }
 
 quint16 Settings::redirectPort() const
@@ -265,6 +312,11 @@ void Settings::setTrading212BaseUrl(const QString &url)
 QString Settings::databasePath()
 {
     return dataDir() + QStringLiteral("/transactions.sqlite");
+}
+
+QString Settings::loopbackCertificatePath()
+{
+    return dataDir() + QStringLiteral("/redirect-localhost.pem");
 }
 
 QString Settings::categoryRulesPath()

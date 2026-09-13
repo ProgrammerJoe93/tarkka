@@ -532,7 +532,18 @@ ScrollView {
         id: keyDialog
 
         title: qsTr("Choose your private key")
-        nameFilters: [qsTr("PEM keys (*.pem *.key)"), qsTr("All files (*)")]
+        /*
+         * Android's picker offers no filter selector, so the first name filter
+         * becomes a MIME filter for the whole dialog and everything outside it
+         * is greyed out rather than merely deprioritised. Neither .pem nor
+         * .tsv has a MIME type the document providers agree on -- a plain .csv
+         * often arrives as application/octet-stream too -- so restricting here
+         * makes the file unpickable, which pushes the user into typing a path
+         * that scoped storage then refuses to open. Desktop keeps the filter.
+         */
+        nameFilters: Qt.platform.os === "android"
+                     ? [qsTr("All files (*)")]
+                     : [qsTr("PEM keys (*.pem *.key)"), qsTr("All files (*)")]
         onAccepted: keyPathField.text = selectedFile
     }
 }

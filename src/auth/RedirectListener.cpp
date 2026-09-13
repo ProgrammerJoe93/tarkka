@@ -1,7 +1,12 @@
 #include "auth/RedirectListener.h"
 
+#include "auth/LoopbackCertificate.h"
+
 #include <QHostAddress>
-#include <QTcpServer>
+#include <QSslCertificate>
+#include <QSslConfiguration>
+#include <QSslKey>
+#include <QSslServer>
 #include <QTcpSocket>
 #include <QUrl>
 #include <QUrlQuery>
@@ -33,14 +38,18 @@ QByteArray htmlResponse(const QString &title, const QString &body)
 
 RedirectListener::RedirectListener(QObject *parent)
     : QObject(parent)
-    , m_server(new QTcpServer(this))
+    , m_server(new QSslServer(this))
 {
-    connect(m_server, &QTcpServer::newConnection, this, &RedirectListener::handleConnection);
+    // QSslServer queues a connection only once the handshake has completed, so
+    // this fires with an already-encrypted socket. newConnection() would hand
+    // over one that is still in the clear.
+    connect(m_server, &QTcpServer::pendingConnectionAvailable,
+            this, &RedirectListener::handleConnection);
 }
 
 QString RedirectListener::redirectUrlForPort(quint16 port)
 {
-    return QStringLiteral("http://127.0.0.1:%1/callback").arg(port);
+    return QStringLiteral("https://localhost:%1/callback").arg(port);
 }
 
 bool RedirectListener::start(quint16 port, QString *errorMessage)
@@ -48,9 +57,26 @@ bool RedirectListener::start(quint16 port, QString *errorMessage)
     if (m_server->isListening())
         return true;
 
+    QString certificateError;
+    const LoopbackCertificate::Pem pem = LoopbackCertificate::loadOrCreate(&certificateError);
+    if (!pem.isValid()) {
+        if (errorMessage)
+            *errorMessage = certificateError;
+        return false;
+    }
+
+    QSslConfiguration configuration = QSslConfiguration::defaultConfiguration();
+    configuration.setLocalCertificate(QSslCertificate(pem.certificate, QSsl::Pem));
+    configuration.setPrivateKey(QSslKey(pem.privateKey, QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey));
+    // The browser is the one deciding whether to trust this certificate; the
+    // listener has no client to authenticate in return.
+    configuration.setPeerVerifyMode(QSslSocket::VerifyNone);
+    m_server->setSslConfiguration(configuration);
+
     if (!m_server->listen(QHostAddress::LocalHost, port)) {
         if (errorMessage) {
-            *errorMessage = QStringLiteral("Cannot listen on 127.0.0.1:%1 for the bank's redirect: %2")
+            *errorMessage = QStringLiteral("Cannot listen on localhost:%1 for the bank's "
+                                           "redirect: %2")
                                 .arg(port)
                                 .arg(m_server->errorString());
         }

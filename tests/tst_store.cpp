@@ -1,7 +1,11 @@
 #include "core/Money.h"
+#include "data/CategoryTotalsModel.h"
 #include "data/SummaryModel.h"
 #include "data/TransactionStore.h"
 
+#include <QSqlDatabase>
+#include <QSqlError>
+#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -20,6 +24,12 @@ private slots:
     void summarisesByCategory();
     void buildsDailySeriesWithGaps();
     void leavesInternalTransfersOutOfTheTotals();
+    void addsTheExcludedColumnToAnOlderDatabase();
+    void keepsAnExcludedRowExcludedOnResync();
+    void leavesExcludedRowsOutOfTheTotals();
+    void groupsIncomingMoneyByCategory();
+    void appliesTheSameExclusionsToIncome();
+    void countsExcludedTransfersOnlyOnce();
     void neverSumsAcrossCurrencies();
     void filtersByCurrency();
 
@@ -98,6 +108,70 @@ void TestStore::keepsUserCategoryOnResync()
     row.category = QStringLiteral("Uncategorised");
     QCOMPARE(store.upsert({row}), 0);
     QCOMPARE(store.query({}).first().category, QStringLiteral("Hobbies"));
+}
+
+void TestStore::addsTheExcludedColumnToAnOlderDatabase()
+{
+    const QString path = m_directory.filePath(QStringLiteral("legacy.sqlite"));
+
+    // A database exactly as a build before the exclusion flag left it. CREATE
+    // TABLE IF NOT EXISTS will not touch this, so if the ALTER is missing the
+    // store opens and then fails on every read.
+    {
+        QSqlDatabase legacy = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                        QStringLiteral("legacy"));
+        legacy.setDatabaseName(path);
+        QVERIFY(legacy.open());
+        QSqlQuery query(legacy);
+        QVERIFY(query.exec(QStringLiteral(
+            "CREATE TABLE transactions ("
+            "  id TEXT PRIMARY KEY, source TEXT NOT NULL, institution TEXT NOT NULL,"
+            "  account_id TEXT NOT NULL, account_name TEXT, booking_date TEXT NOT NULL,"
+            "  value_date TEXT, description TEXT, counterparty TEXT, reference TEXT,"
+            "  amount_minor INTEGER NOT NULL, currency TEXT NOT NULL, category TEXT,"
+            "  category_is_user_set INTEGER NOT NULL DEFAULT 0, status TEXT)")));
+        QVERIFY(query.exec(QStringLiteral(
+            "INSERT INTO transactions (id, source, institution, account_id, booking_date,"
+            "  amount_minor, currency, category)"
+            " VALUES ('old', 'csv', 'Aktia', 'acc', '2026-09-01', -1000, 'EUR', 'Groceries')")));
+    }
+    QSqlDatabase::removeDatabase(QStringLiteral("legacy"));
+
+    TransactionStore store;
+    QVERIFY(store.open(path));
+
+    // The existing row survives, counted, and can then be excluded.
+    const TransactionList rows = store.query({});
+    QCOMPARE(rows.size(), 1);
+    QCOMPARE(rows.first().id, QStringLiteral("old"));
+    QVERIFY(!rows.first().excluded);
+
+    QVERIFY(store.setExcluded(QStringLiteral("old"), true));
+    QVERIFY(store.query({}).first().excluded);
+}
+
+void TestStore::keepsAnExcludedRowExcludedOnResync()
+{
+    TransactionStore store;
+    QVERIFY(store.open(m_directory.filePath(QStringLiteral("x.sqlite"))));
+
+    Transaction row = make("skip", QDate(2026, 9, 1), -1000, "Aktia", "Groceries");
+    QCOMPARE(store.upsert({row}), 1);
+    QVERIFY(!store.query({}).first().excluded);
+
+    QVERIFY(store.setExcluded(QStringLiteral("skip"), true));
+    QVERIFY(store.query({}).first().excluded);
+
+    // The bank amends the row. The judgement to leave it out is the user's and
+    // has to outlast whatever the provider sends next.
+    row.amountMinor = -1200;
+    QCOMPARE(store.upsert({row}), 0);
+    const Transaction stored = store.query({}).first();
+    QVERIFY(stored.excluded);
+    QCOMPARE(stored.amountMinor, -1200);
+
+    QVERIFY(store.setExcluded(QStringLiteral("skip"), false));
+    QVERIFY(!store.query({}).first().excluded);
 }
 
 void TestStore::updatesPendingRowToBooked()
@@ -225,6 +299,93 @@ void TestStore::leavesInternalTransfersOutOfTheTotals()
     QCOMPARE(summary.rowCount(), 1);
     QCOMPARE(summary.data(summary.index(0, 0), SummaryModel::CategoryRole).toString(),
              QStringLiteral("Transport"));
+}
+
+void TestStore::leavesExcludedRowsOutOfTheTotals()
+{
+    SummaryModel summary;
+    Transaction reimbursed = make("2", QDate(2026, 9, 2), -8000, "Aktia", "Groceries");
+    reimbursed.excluded = true;
+
+    summary.setTransactions({
+        make("1", QDate(2026, 9, 1), -2490, "Aktia", "Transport"),
+        reimbursed,
+        make("3", QDate(2026, 9, 3), 250000, "Nordea", "Income"),
+    });
+
+    QCOMPARE(summary.totalSpentText(), Money::format(2490, "EUR"));
+    QCOMPARE(summary.netText(), Money::format(250000 - 2490, "EUR"));
+    QVERIFY(summary.hasExcluded());
+    QCOMPARE(summary.excludedText(), Money::format(8000, "EUR"));
+
+    // The category buckets have to agree with the totals, or the dashboard
+    // would show a slice of spending the headline figure does not contain.
+    QCOMPARE(summary.rowCount(), 1);
+    QCOMPARE(summary.data(summary.index(0, 0), SummaryModel::CategoryRole).toString(),
+             QStringLiteral("Transport"));
+}
+
+void TestStore::groupsIncomingMoneyByCategory()
+{
+    SummaryModel summary;
+    summary.setTransactions({
+        make("1", QDate(2026, 9, 3), 250000, "Nordea", "Income", "Employer"),
+        make("2", QDate(2026, 9, 10), 1500, "Nordea", "Refunds", "Shop"),
+        make("3", QDate(2026, 9, 20), 50000, "Nordea", "Income", "Employer"),
+        make("4", QDate(2026, 9, 21), -2490, "Aktia", "Transport"),
+    });
+
+    // Largest first, and the two salary rows land in one bucket.
+    QCOMPARE(summary.income()->rowCount(), 2);
+    const QModelIndex first = summary.income()->index(0, 0);
+    QCOMPARE(summary.income()->data(first, CategoryTotalsModel::CategoryRole).toString(),
+             QStringLiteral("Income"));
+    QCOMPARE(summary.income()->data(first, CategoryTotalsModel::AmountMinorRole).toLongLong(),
+             300000);
+    QCOMPARE(summary.income()->data(first, CategoryTotalsModel::TransactionCountRole).toInt(), 2);
+
+    // Spending is untouched by any of this.
+    QCOMPARE(summary.totalSpentText(), Money::format(2490, "EUR"));
+}
+
+void TestStore::appliesTheSameExclusionsToIncome()
+{
+    SummaryModel summary;
+    Transaction setAside = make("skip", QDate(2026, 9, 4), 9900, "Nordea", "Refunds");
+    setAside.excluded = true;
+
+    summary.setTransactions({
+        make("pay", QDate(2026, 9, 3), 250000, "Nordea", "Income", "Employer"),
+        setAside,
+        // The incoming leg of moving money between your own accounts is not
+        // income; counting it here would contradict the net card, which says
+        // the same amount was left out.
+        make("xfer", QDate(2026, 9, 5), 20000, "Aktia", "Transfers"),
+        // A zero-amount row would otherwise add a category worth nothing.
+        make("nil", QDate(2026, 9, 6), 0, "Nordea", "Adjustments"),
+    });
+
+    QCOMPARE(summary.income()->rowCount(), 1);
+    QCOMPARE(summary.income()->data(summary.income()->index(0, 0),
+                                    CategoryTotalsModel::CategoryRole)
+                 .toString(),
+             QStringLiteral("Income"));
+}
+
+void TestStore::countsExcludedTransfersOnlyOnce()
+{
+    SummaryModel summary;
+    // A row that is both a transfer and hand-excluded belongs to one bucket
+    // only, or the caption would report the same money twice.
+    Transaction both = make("1", QDate(2026, 9, 1), -20000, "Aktia", "Transfers");
+    both.excluded = true;
+
+    summary.setTransactions({both, make("2", QDate(2026, 9, 2), -2490, "Aktia", "Transport")});
+
+    QVERIFY(summary.hasExcluded());
+    QVERIFY(!summary.hasTransfers());
+    QCOMPARE(summary.excludedText(), Money::format(20000, "EUR"));
+    QCOMPARE(summary.totalSpentText(), Money::format(2490, "EUR"));
 }
 
 void TestStore::neverSumsAcrossCurrencies()

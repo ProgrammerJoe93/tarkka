@@ -8,6 +8,32 @@
         <translation>Lisää ensin Enable Banking- tai Trading 212 -tunnuksesi asetuksiin, tai tuo tiliote tiedostosta.</translation>
     </message>
     <message>
+        <source>There are no bank connections on this device to export.</source>
+        <translation>Tällä laitteella ei ole pankkiyhteyksiä vietäväksi.</translation>
+    </message>
+    <message>
+        <source>Cannot write %1: %2</source>
+        <translation>Tiedostoon %1 ei voi kirjoittaa: %2</translation>
+    </message>
+    <message numerus="yes">
+        <source>Exported %n bank connection(s). Move the private key across separately.</source>
+        <translation>
+            <numerusform>Vietiin %n pankkiyhteys. Siirrä yksityinen avain erikseen.</numerusform>
+            <numerusform>Vietiin %n pankkiyhteyttä. Siirrä yksityinen avain erikseen.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Cannot read %1: %2</source>
+        <translation>Tiedostoa %1 ei voi lukea: %2</translation>
+    </message>
+    <message numerus="yes">
+        <source>Imported %n bank connection(s). Point Settings at the matching private key, then sync.</source>
+        <translation>
+            <numerusform>Tuotiin %n pankkiyhteys. Osoita asetuksissa vastaavaan yksityiseen avaimeen ja synkronoi.</numerusform>
+            <numerusform>Tuotiin %n pankkiyhteyttä. Osoita asetuksissa vastaavaan yksityiseen avaimeen ja synkronoi.</numerusform>
+        </translation>
+    </message>
+    <message>
         <source>Settings saved.</source>
         <translation>Asetukset tallennettu.</translation>
     </message>
@@ -31,8 +57,19 @@
 <context>
     <name>CategoryBars</name>
     <message>
+        <source>%1, %2, %3 percent of income</source>
+        <translation>%1, %2, %3 prosenttia tuloista</translation>
+    </message>
+    <message>
         <source>%1, %2, %3 percent of spending</source>
         <translation>%1, %2, %3 prosenttia menoista</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n payment(s)</source>
+        <translation>
+            <numerusform>%n suoritus</numerusform>
+            <numerusform>%n suoritusta</numerusform>
+        </translation>
     </message>
     <message numerus="yes">
         <source>%n purchase(s)</source>
@@ -49,12 +86,20 @@
         <translation>Liitetyt tilit</translation>
     </message>
     <message>
+        <source>Export…</source>
+        <translation>Vie…</translation>
+    </message>
+    <message>
+        <source>Import…</source>
+        <translation>Tuo…</translation>
+    </message>
+    <message>
         <source>Disconnect all</source>
         <translation>Katkaise kaikki</translation>
     </message>
     <message>
-        <source>No accounts are linked yet. Pick your bank below to start the consent flow in your browser.</source>
-        <translation>Yhtään tiliä ei ole vielä liitetty. Valitse pankkisi alta, niin suostumus annetaan selaimessa.</translation>
+        <source>No accounts are linked yet. Pick your bank below to start the consent flow in your browser, or import connections exported from another device.</source>
+        <translation>Yhtään tiliä ei ole vielä liitetty. Valitse pankkisi alta, niin suostumus annetaan selaimessa, tai tuo toiselta laitteelta viedyt yhteydet.</translation>
     </message>
     <message>
         <source>Credit card</source>
@@ -127,6 +172,18 @@
     <message>
         <source>Choose CSV file…</source>
         <translation>Valitse CSV-tiedosto…</translation>
+    </message>
+    <message>
+        <source>Save the bank connections</source>
+        <translation>Tallenna pankkiyhteydet</translation>
+    </message>
+    <message>
+        <source>Tarkka connections (*.json)</source>
+        <translation>Tarkan yhteydet (*.json)</translation>
+    </message>
+    <message>
+        <source>Choose exported bank connections</source>
+        <translation>Valitse viedyt pankkiyhteydet</translation>
     </message>
     <message>
         <source>Choose a bank statement</source>
@@ -212,8 +269,16 @@
         <translation>NETTO</translation>
     </message>
     <message>
+        <source>Excludes %1 moved between your accounts and %2 you left out</source>
+        <translation>Ei sisällä %1, joka siirtyi tiliesi välillä, eikä %2, jonka jätit pois</translation>
+    </message>
+    <message>
         <source>Excludes %1 moved between your accounts</source>
         <translation>Ei sisällä %1, joka siirtyi tiliesi välillä</translation>
+    </message>
+    <message>
+        <source>Excludes %1 you left out</source>
+        <translation>Ei sisällä %1, jonka jätit pois</translation>
     </message>
     <message>
         <source>Income minus spending</source>
@@ -246,6 +311,10 @@
     <message>
         <source>Connect a bank</source>
         <translation>Yhdistä pankki</translation>
+    </message>
+    <message>
+        <source>Where the money came from</source>
+        <translation>Mistä raha tuli</translation>
     </message>
 </context>
 <context>
@@ -352,6 +421,10 @@
     <message>
         <source>Dashboard</source>
         <translation>Yleisnäkymä</translation>
+    </message>
+    <message>
+        <source>Trends</source>
+        <translation>Kehitys</translation>
     </message>
     <message>
         <source>Transactions</source>
@@ -637,12 +710,24 @@
 <context>
     <name>TransactionDelegate</name>
     <message>
+        <source>%1, %2, %3, %4, left out of the totals</source>
+        <translation>%1, %2, %3, %4, jätetty pois summista</translation>
+    </message>
+    <message>
         <source>%1, %2, %3, %4</source>
         <translation>%1, %2, %3, %4</translation>
     </message>
     <message>
         <source>Pending</source>
         <translation>Vireillä</translation>
+    </message>
+    <message>
+        <source>Include in the totals</source>
+        <translation>Laske mukaan summiin</translation>
+    </message>
+    <message>
+        <source>Leave out of the totals</source>
+        <translation>Jätä pois summista</translation>
     </message>
 </context>
 <context>
@@ -682,6 +767,29 @@
     <message>
         <source>A category you set by hand is kept when this row is synced again.</source>
         <translation>Käsin asettamasi kategoria säilyy, kun tämä rivi synkronoidaan uudelleen.</translation>
+    </message>
+</context>
+<context>
+    <name>TrendsView</name>
+    <message>
+        <source>Spending by month</source>
+        <translation>Menot kuukausittain</translation>
+    </message>
+    <message>
+        <source>The months up to the one the dashboard is showing.</source>
+        <translation>Kuukaudet siihen asti, jota yleisnäkymä näyttää.</translation>
+    </message>
+    <message>
+        <source>By category</source>
+        <translation>Kategorioittain</translation>
+    </message>
+    <message>
+        <source>Nothing to compare yet</source>
+        <translation>Ei vielä vertailtavaa</translation>
+    </message>
+    <message>
+        <source>Once there is spending in more than one month, this is where the months line up against each other.</source>
+        <translation>Kun menoja on useammalta kuukaudelta, täällä kuukaudet asettuvat rinnakkain.</translation>
     </message>
 </context>
 </TS>

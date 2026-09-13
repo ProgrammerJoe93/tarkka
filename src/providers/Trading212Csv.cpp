@@ -70,7 +70,7 @@ namespace Trading212 {
 
 bool matches(const QStringList &header)
 {
-    if (Csv::columnIndex(header, kActionAliases) < 0)
+    if (Csv::columnIndexAllowingQualifier(header, kActionAliases) < 0)
         return false;
 
     // "Action" alone is too generic; pair it with something only this export has.
@@ -81,9 +81,17 @@ bool matches(const QStringList &header)
 
 TransactionList parse(const Csv::Table &table, QString *errorMessage)
 {
-    const int actionColumn = Csv::columnIndex(table.header, kActionAliases);
-    const int timeColumn = Csv::columnIndex(table.header, kTimeAliases);
-    const int totalColumn = Csv::columnIndex(table.header, kTotalAliases);
+    /*
+     * Qualifier-tolerant, because the card export names its timestamp column
+     * "Time (UTC)" rather than "Time" -- an exact match rejects the whole file
+     * over a bracketed suffix. The same tolerance covers a "Total (EUR)" seen
+     * in other exports. It cannot mistake this file's "Currency (Total)" for
+     * the amount: the bracketed text is the qualifier, and the part compared
+     * against the aliases is "Currency".
+     */
+    const int actionColumn = Csv::columnIndexAllowingQualifier(table.header, kActionAliases);
+    const int timeColumn = Csv::columnIndexAllowingQualifier(table.header, kTimeAliases);
+    const int totalColumn = Csv::columnIndexAllowingQualifier(table.header, kTotalAliases);
 
     if (actionColumn < 0 || timeColumn < 0 || totalColumn < 0) {
         if (errorMessage) {

@@ -2,12 +2,15 @@
 
 #include "data/AccountModel.h"
 #include "providers/CsvProvider.h"
+#include "providers/Provider.h"
 #include "auth/RedirectListener.h"
 #include "providers/EnableBankingProvider.h"
 #include "providers/Trading212Provider.h"
 #include "i18n/Translation.h"
+#include "auth/ConnectionFile.h"
 
 #include <QClipboard>
+#include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QLocale>
@@ -159,7 +162,32 @@ void AppController::reload()
 
     m_transactionModel.setTransactions(rows);
     m_summaryModel.setTransactions(rows, m_filter.from, m_filter.to);
+    refreshTrends();
     emit dataChanged();
+}
+
+void AppController::refreshTrends()
+{
+    /*
+     * The window ends at the month being shown rather than at today, so
+     * stepping back through the months moves the comparison with them: looking
+     * at March should compare March with the months before it, not with now.
+     */
+    const QDate anchor = m_filter.from.isValid() ? m_filter.from : QDate::currentDate();
+    const QDate lastMonth(anchor.year(), anchor.month(), 1);
+
+    QList<QDate> months;
+    months.reserve(trendMonths);
+    for (int offset = trendMonths - 1; offset >= 0; --offset)
+        months.append(lastMonth.addMonths(-offset));
+
+    QString errorMessage;
+    const QList<TransactionStore::MonthlySpend> spending = m_store.monthlySpend(
+        months.constFirst(), lastMonth.addMonths(1).addDays(-1), m_filter.currency, &errorMessage);
+    if (!errorMessage.isEmpty())
+        report(errorMessage, true);
+
+    m_trendsModel.setSpending(spending, months, m_filter.currency);
 }
 
 QStringList AppController::institutions() const
@@ -301,15 +329,13 @@ void AppController::syncNow()
     if (haveTrading212)
         beginTask();
 
-    // Fetch a little wider than the visible range so that rows a provider books
-    // late still land in the month they belong to.
-    const QDate from = m_filter.from.addDays(-7);
-    const QDate to = m_filter.to.addDays(1);
+    const SyncWindow window =
+        SyncWindow::forRange(m_filter.from, m_filter.to, QDate::currentDate());
 
     if (haveBank)
-        m_bank->fetch(from, to);
+        m_bank->fetch(window.from, window.to);
     if (haveTrading212)
-        m_trading212->fetch(from, to);
+        m_trading212->fetch(window.from, window.to);
 }
 
 void AppController::importStatement(const QUrl &fileUrl,
@@ -331,6 +357,74 @@ void AppController::setTransactionCategory(const QString &transactionId, const Q
     reload();
 }
 
+void AppController::exportConnection(const QUrl &fileUrl)
+{
+    ConnectionFile::Contents contents;
+    contents.applicationId = m_settings.applicationId();
+    contents.country = m_settings.country();
+    contents.sessionIds = m_settings.sessionIds();
+
+    if (contents.sessionIds.isEmpty()) {
+        report(tr("There are no bank connections on this device to export."), true);
+        return;
+    }
+
+    const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        report(tr("Cannot write %1: %2").arg(path, file.errorString()), true);
+        return;
+    }
+    file.write(ConnectionFile::serialise(contents));
+    file.close();
+
+    report(tr("Exported %n bank connection(s). Move the private key across separately.", nullptr,
+              static_cast<int>(contents.sessionIds.size())),
+           false);
+}
+
+void AppController::importConnection(const QUrl &fileUrl)
+{
+    const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        report(tr("Cannot read %1: %2").arg(path, file.errorString()), true);
+        return;
+    }
+
+    QString errorMessage;
+    const ConnectionFile::Contents contents = ConnectionFile::parse(file.readAll(), &errorMessage);
+    if (!contents.isValid()) {
+        report(errorMessage, true);
+        return;
+    }
+
+    // Merged rather than replacing: a bank connected only on this device would
+    // otherwise vanish. A session the bank has since revoked is dropped by the
+    // reload below, so stale entries do not accumulate.
+    m_settings.setApplicationId(contents.applicationId);
+    if (!contents.country.isEmpty())
+        m_settings.setCountry(contents.country);
+    for (const QString &sessionId : contents.sessionIds)
+        m_settings.addSessionId(sessionId);
+
+    emit settingsChanged();
+    report(tr("Imported %n bank connection(s). Point Settings at the matching private key, "
+              "then sync.", nullptr, static_cast<int>(contents.sessionIds.size())),
+           false);
+    m_bank->loadStoredSessions();
+}
+
+void AppController::setTransactionExcluded(const QString &transactionId, bool excluded)
+{
+    QString errorMessage;
+    if (!m_store.setExcluded(transactionId, excluded, &errorMessage)) {
+        report(errorMessage, true);
+        return;
+    }
+    reload();
+}
+
 void AppController::disconnectAll()
 {
     m_bank->disconnectAll();
@@ -343,16 +437,25 @@ void AppController::saveCredentials(const QString &applicationId,
                                     const QString &countryCode)
 {
     m_settings.setApplicationId(applicationId);
-
-    const QString trimmedPath = privateKeyPath.trimmed();
-    if (!trimmedPath.isEmpty()) {
-        const QUrl asUrl(trimmedPath);
-        m_settings.setPrivateKeyPath(asUrl.isLocalFile() ? asUrl.toLocalFile() : trimmedPath);
-    }
     if (redirectPort > 0 && redirectPort <= 65535)
         m_settings.setRedirectPort(static_cast<quint16>(redirectPort));
     if (!countryCode.isEmpty())
         m_settings.setCountry(countryCode);
+
+    // Done last, and allowed to fail on its own: everything above is already
+    // stored, so a key that cannot be read costs the user only the key rather
+    // than the whole form.
+    const QString trimmedPath = privateKeyPath.trimmed();
+    QString keyError;
+    if (!trimmedPath.isEmpty()) {
+        const QUrl asUrl(trimmedPath);
+        if (!m_settings.setPrivateKeyPath(
+                asUrl.isLocalFile() ? asUrl.toLocalFile() : trimmedPath, &keyError)) {
+            emit settingsChanged();
+            report(keyError, true);
+            return;
+        }
+    }
 
     emit settingsChanged();
     report(tr("Settings saved."), false);

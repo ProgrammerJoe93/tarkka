@@ -41,6 +41,28 @@ Item {
         }
     }
 
+    // Trends: three bars of rising height, as in a chart.
+    Row {
+        anchors.centerIn: parent
+        visible: icon.kind === "trend"
+        spacing: 2
+
+        Repeater {
+            model: [6, 10, 14]
+
+            delegate: Rectangle {
+                required property int modelData
+                width: 3
+                height: modelData
+                // Bottom-aligned, so the bars rise from a common baseline
+                // rather than being centred at different heights.
+                anchors.bottom: parent.bottom
+                radius: 1
+                color: icon.color
+            }
+        }
+    }
+
     // Transactions: stacked rows, as in a list.
     Column {
         anchors.centerIn: parent

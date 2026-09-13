@@ -46,12 +46,15 @@ set(TARKKA_SOURCES
     src/data/TransactionStore.cpp
     src/data/TransactionModel.cpp
     src/data/TransactionFilterModel.cpp
+    src/data/CategoryTotalsModel.cpp
     src/data/SummaryModel.cpp
+    src/data/TrendsModel.cpp
     src/data/AccountModel.cpp
     src/net/JwtKey.cpp
     src/net/HttpClient.cpp
     src/auth/RedirectListener.cpp
     src/auth/Settings.cpp
+    src/auth/ConnectionFile.cpp
     src/i18n/Translation.cpp
     src/providers/EnableBankingProvider.cpp
     src/providers/CsvProvider.cpp
@@ -68,13 +71,17 @@ set(TARKKA_HEADERS
     src/data/TransactionStore.h
     src/data/TransactionModel.h
     src/data/TransactionFilterModel.h
+    src/data/CategoryTotalsModel.h
     src/data/SummaryModel.h
+    src/data/TrendsModel.h
     src/data/AccountModel.h
     src/net/Jwt.h
     src/net/JwtKey.h
     src/net/HttpClient.h
     src/auth/RedirectListener.h
     src/auth/Settings.h
+    src/auth/LoopbackCertificate.h
+    src/auth/ConnectionFile.h
     src/i18n/Translation.h
     src/providers/Provider.h
     src/providers/EnableBankingProvider.h
@@ -88,8 +95,10 @@ set(TARKKA_HEADERS
 # Core logic lives in a static library so the test suite can link it directly.
 if(ANDROID)
     list(APPEND TARKKA_SOURCES src/net/Jwt_android.cpp)
+    list(APPEND TARKKA_SOURCES src/auth/LoopbackCertificate_android.cpp)
 else()
     list(APPEND TARKKA_SOURCES src/net/Jwt_openssl.cpp)
+    list(APPEND TARKKA_SOURCES src/auth/LoopbackCertificate_openssl.cpp)
 endif()
 
 qt_add_library(tarkka_core STATIC ${TARKKA_SOURCES} ${TARKKA_HEADERS})
@@ -121,6 +130,7 @@ qt_add_qml_module(tarkka_core
         qml/Main.qml
         qml/Theme.qml
         qml/DashboardView.qml
+        qml/TrendsView.qml
         qml/TransactionsView.qml
         qml/ConnectView.qml
         qml/SettingsView.qml
@@ -134,6 +144,8 @@ qt_add_qml_module(tarkka_core
         qml/components/StatusBanner.qml
         qml/components/EmptyState.qml
         qml/components/SegmentedChoice.qml
+        qml/components/CategoryChip.qml
+        qml/components/ChangeBadge.qml
 )
 
 qt_add_executable(tarkka src/main.cpp)

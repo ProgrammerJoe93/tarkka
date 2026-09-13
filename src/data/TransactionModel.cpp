@@ -57,6 +57,8 @@ QVariant TransactionModel::data(const QModelIndex &index, int role) const
         return transaction.isSpend();
     case IsPendingRole:
         return transaction.isPending();
+    case IsExcludedRole:
+        return transaction.excluded;
     default:
         return {};
     }
@@ -79,5 +81,6 @@ QHash<int, QByteArray> TransactionModel::roleNames() const
         {CategoryRole, "category"},
         {IsSpendRole, "isSpend"},
         {IsPendingRole, "isPending"},
+        {IsExcludedRole, "isExcluded"},
     };
 }

@@ -9,6 +9,14 @@ ColumnLayout {
 
     required property var model
     property int maximumRows: 8
+    /*!
+        Whether these are amounts coming in rather than going out.
+
+        Only the wording changes: "purchases" and "percent of spending" are
+        wrong for a salary, and a screen reader announcing either would be
+        actively misleading about which way the money moved.
+    */
+    property bool incoming: false
 
     signal categoryActivated(string category)
 
@@ -33,8 +41,11 @@ ColumnLayout {
             visible: row.index < root.maximumRows
 
             Accessible.role: Accessible.Button
-            Accessible.name: qsTr("%1, %2, %3 percent of spending")
-                .arg(row.category).arg(row.amountText).arg(Math.round(row.share * 100))
+            Accessible.name: root.incoming
+                ? qsTr("%1, %2, %3 percent of income")
+                    .arg(row.category).arg(row.amountText).arg(Math.round(row.share * 100))
+                : qsTr("%1, %2, %3 percent of spending")
+                    .arg(row.category).arg(row.amountText).arg(Math.round(row.share * 100))
 
             ColumnLayout {
                 anchors.fill: parent
@@ -61,7 +72,9 @@ ColumnLayout {
                     }
 
                     Text {
-                        text: qsTr("%n purchase(s)", "", row.transactionCount)
+                        text: root.incoming
+                              ? qsTr("%n payment(s)", "", row.transactionCount)
+                              : qsTr("%n purchase(s)", "", row.transactionCount)
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSizeSmall
                     }

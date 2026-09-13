@@ -2,6 +2,7 @@
 
 #include "core/Categoriser.h"
 #include "core/Transaction.h"
+#include "data/CategoryTotalsModel.h"
 
 #include <QAbstractListModel>
 #include <QDate>
@@ -30,6 +31,17 @@ class SummaryModel : public QAbstractListModel
     Q_PROPERTY(QVariantList dailySpend READ dailySpend NOTIFY countChanged)
     Q_PROPERTY(QString transfersText READ transfersText NOTIFY countChanged)
     Q_PROPERTY(bool hasTransfers READ hasTransfers NOTIFY countChanged)
+    /*!
+     * Incoming money grouped the same way spending is.
+     *
+     * A separate model rather than more roles on this one, because the
+     * dashboard draws the two as separate lists; it is filled from the same
+     * pass over the same rows, so the two halves cannot disagree about which
+     * rows count.
+     */
+    Q_PROPERTY(CategoryTotalsModel *income READ income CONSTANT)
+    Q_PROPERTY(QString excludedText READ excludedText NOTIFY countChanged)
+    Q_PROPERTY(bool hasExcluded READ hasExcluded NOTIFY countChanged)
     Q_PROPERTY(QString currency READ currency NOTIFY countChanged)
     Q_PROPERTY(bool hasOtherCurrencies READ hasOtherCurrencies NOTIFY countChanged)
     Q_PROPERTY(int otherCurrencyCount READ otherCurrencyCount NOTIFY countChanged)
@@ -59,10 +71,21 @@ public:
     QString totalReceivedText() const;
     QString netText() const;
     QString largestCategory() const;
+    CategoryTotalsModel *income() { return &m_income; }
 
     //! Total moved between the user's own accounts, excluded from the figures above.
     QString transfersText() const;
     bool hasTransfers() const { return m_transferCount > 0; }
+
+    /*!
+     * Total the user has left out by hand, kept apart from transfersText().
+     *
+     * Both are missing from the figures above, but for different reasons, and
+     * a caption that says which is the only way to tell a total that is wrong
+     * from one that is deliberately incomplete.
+     */
+    QString excludedText() const;
+    bool hasExcluded() const { return m_excludedCount > 0; }
 
     /*!
      * The currency every figure in this model is expressed in.
@@ -101,11 +124,14 @@ private:
     };
 
     QList<Bucket> m_buckets;
+    CategoryTotalsModel m_income;
     QVariantList m_dailySpend;
     qint64 m_totalSpentMinor = 0;
     qint64 m_totalReceivedMinor = 0;
     qint64 m_transferredMinor = 0;
     int m_transferCount = 0;
+    qint64 m_excludedMinor = 0;
+    int m_excludedCount = 0;
     int m_otherCurrencyCount = 0;
     QString m_currency;
 };

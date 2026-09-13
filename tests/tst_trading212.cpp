@@ -12,6 +12,7 @@ class TestTrading212 : public QObject
     Q_OBJECT
 
 private slots:
+    void parsesTheCardOnlyExportHeader();
     void recognisesTheExportHeader();
     void doesNotClaimAPlainBankExport();
     void mapsCardSpending();
@@ -229,6 +230,35 @@ void TestTrading212::buildsABasicAuthorizationHeader()
 
     // No stray newline: base64 wrapping would invalidate the credential.
     QVERIFY(!header.contains('\n'));
+}
+
+void TestTrading212::parsesTheCardOnlyExportHeader()
+{
+    /*
+     * The card-spending export, which carries no portfolio columns at all and
+     * names its timestamp "Time (UTC)". Matching column names exactly rejected
+     * the whole file over that bracketed suffix, reporting a missing Time
+     * column while the header plainly showed one.
+     */
+    const QByteArray header =
+        "Action,Time (UTC),Notes,ID,Total,Currency (Total),Currency conversion fee,"
+        "Currency (Currency conversion fee),Merchant name,Merchant category\n";
+
+    QVERIFY(Trading212::matches(tableOf(header).header));
+
+    const QByteArray csv = header +
+        "Card debit,2026-09-04 12:34:56,,abc-123,-24.90,EUR,0.00,EUR,K-Market Kamppi,Groceries\n";
+
+    QString errorMessage;
+    const TransactionList rows = Trading212::parse(tableOf(csv), &errorMessage);
+
+    QVERIFY2(errorMessage.isEmpty(), qPrintable(errorMessage));
+    QCOMPARE(rows.size(), 1);
+    QCOMPARE(rows.first().bookingDate, QDate(2026, 9, 4));
+    QCOMPARE(rows.first().amountMinor, -2490LL);
+    QCOMPARE(rows.first().currency, QStringLiteral("EUR"));
+    QCOMPARE(rows.first().counterparty, QStringLiteral("K-Market Kamppi"));
+    QCOMPARE(rows.first().reference, QStringLiteral("abc-123"));
 }
 
 QTEST_APPLESS_MAIN(TestTrading212)

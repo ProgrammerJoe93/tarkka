@@ -39,6 +39,16 @@ struct Transaction
     //! "BOOK" for booked, "PDNG" for pending, or whatever the bank reported.
     QString status;
 
+    /*!
+     * Left out of the totals at the user's request.
+     *
+     * Distinct from the automatic transfer exclusion, which is inferred from
+     * the category: this one is a deliberate judgement about a single row --
+     * a reimbursed expense, a one-off that would distort the month -- and so
+     * it survives re-sync the way a hand-set category does.
+     */
+    bool excluded = false;
+
     bool isSpend() const { return amountMinor < 0; }
     bool isPending() const { return status.compare(QLatin1String("BOOK"), Qt::CaseInsensitive) != 0; }
 };

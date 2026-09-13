@@ -36,6 +36,7 @@ public:
         CategoryRole,
         IsSpendRole,
         IsPendingRole,
+        IsExcludedRole,
     };
     Q_ENUM(Role)
 

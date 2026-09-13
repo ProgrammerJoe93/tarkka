@@ -45,6 +45,29 @@ public:
 
     TransactionList query(const Filter &filter, QString *errorMessage = nullptr) const;
 
+    //! One category's spending within one calendar month.
+    struct MonthlySpend
+    {
+        QDate month;       //!< First day of the month the total covers.
+        QString category;
+        qint64 spentMinor = 0;  //!< Positive magnitude of money spent.
+    };
+
+    /*!
+     * Spending per category per month, for comparing months against each other.
+     *
+     * Aggregated in SQL rather than by loading rows, because the comparison
+     * spans far more months than the transaction list ever shows at once.
+     *
+     * Counts exactly what the dashboard's figures count, so the two cannot
+     * disagree: outgoing rows only, in one \a currency, with transfers between
+     * the user's own accounts and rows excluded by hand both left out.
+     */
+    QList<MonthlySpend> monthlySpend(const QDate &from,
+                                     const QDate &to,
+                                     const QString &currency,
+                                     QString *errorMessage = nullptr) const;
+
     QStringList institutions() const;
     QStringList categories() const;
     //! Distinct currencies, most-used first, so the caller can default sensibly.
@@ -53,6 +76,10 @@ public:
 
     //! Overrides the category for one row and marks it as user-set.
     bool setCategory(const QString &transactionId, const QString &category,
+                     QString *errorMessage = nullptr);
+
+    //! Leaves one row out of the totals, or puts it back.
+    bool setExcluded(const QString &transactionId, bool excluded,
                      QString *errorMessage = nullptr);
 
     bool removeInstitution(const QString &institution, QString *errorMessage = nullptr);

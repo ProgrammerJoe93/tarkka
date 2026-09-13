@@ -21,7 +21,23 @@ public:
     void setApplicationId(const QString &id);
 
     QString privateKeyPath() const;
-    void setPrivateKeyPath(const QString &path);
+    /*!
+     * Records where the private key lives.
+     *
+     * On Android the file is copied into the app's own storage rather than
+     * referenced where it sits. A document chosen through the system picker
+     * comes back as a content:// URI whose read grant lasts only as long as
+     * the picking activity, so a stored path stops working -- typically at the
+     * next launch, reporting "permission denied" on a file the user can still
+     * see. Copying while the grant is live is the only way to keep it
+     * readable.
+     *
+     * Everywhere else the key stays where the user put it and only the path is
+     * kept, so nothing secret is duplicated.
+     *
+     * Returns false and sets \a errorMessage if the key could not be stored.
+     */
+    bool setPrivateKeyPath(const QString &path, QString *errorMessage = nullptr);
 
     quint16 redirectPort() const;
     void setRedirectPort(quint16 port);
@@ -82,5 +98,7 @@ public:
     bool isConfigured() const;
 
     static QString databasePath();
+    //! Self-signed TLS pair the redirect listener serves; created on first use.
+    static QString loopbackCertificatePath();
     static QString categoryRulesPath();
 };
