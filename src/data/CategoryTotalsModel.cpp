@@ -56,6 +56,14 @@ QVariant CategoryTotalsModel::data(const QModelIndex &index, int role) const
                    : 0.0;
     case TransactionCountRole:
         return bucket.transactionCount;
+    case TargetMinorRole:
+        return QVariant::fromValue(qint64(-1));
+    case TargetTextRole:
+        return QString();
+    case TargetShareRole:
+        return 0.0;
+    case OverTargetRole:
+        return false;
     default:
         return {};
     }
@@ -69,5 +77,9 @@ QHash<int, QByteArray> CategoryTotalsModel::roleNames() const
         {AmountTextRole, "amountText"},
         {ShareRole, "share"},
         {TransactionCountRole, "transactionCount"},
+        {TargetMinorRole, "targetMinor"},
+        {TargetTextRole, "targetText"},
+        {TargetShareRole, "targetShare"},
+        {OverTargetRole, "overTarget"},
     };
 }

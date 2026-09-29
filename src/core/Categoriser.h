@@ -30,7 +30,26 @@ public:
     void setRules(const QList<Rule> &rules);
     const QList<Rule> &rules() const { return m_rules; }
 
-    //! Loads rules from a JSON file of {"category": ["regex", ...]} objects.
+    /*!
+     * Makes \a rule the highest-priority rule for its pattern.
+     *
+     * Any existing rule with the same pattern is removed first, so re-deciding
+     * a merchant updates the answer instead of leaving two rules that disagree
+     * and letting position pick the winner. Placed first because the first
+     * match wins and a rule just asked for should outrank whatever it corrects.
+     */
+    void setRule(const Rule &rule);
+
+    /*!
+     * Loads rules from \a path, newest first.
+     *
+     * Two shapes are accepted. The current one is {"version": 2, "rules":
+     * [{"category", "pattern"}, ...]}, an array because order is precedence
+     * and a JSON object does not keep it -- keys come back sorted, so the
+     * older {"category": ["regex", ...]} form silently reordered rules
+     * alphabetically every time it was read. That form is still read, since
+     * files written by earlier versions and by hand are out there.
+     */
     bool loadFromFile(const QString &path, QString *errorMessage = nullptr);
     //! Writes the current rules back out, creating parent directories.
     bool saveToFile(const QString &path, QString *errorMessage = nullptr) const;

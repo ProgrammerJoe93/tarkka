@@ -4,6 +4,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QPair>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -45,6 +46,8 @@ Transaction rowToTransaction(const QSqlQuery &query)
     transaction.category = query.value(QStringLiteral("category")).toString();
     transaction.status = query.value(QStringLiteral("status")).toString();
     transaction.excluded = query.value(QStringLiteral("excluded")).toInt() != 0;
+    transaction.categoryFromProvider =
+        query.value(QStringLiteral("category_is_provider_set")).toInt() != 0;
     return transaction;
 }
 
@@ -114,7 +117,8 @@ bool TransactionStore::migrate(QString *errorMessage)
                        "  category TEXT,"
                        "  category_is_user_set INTEGER NOT NULL DEFAULT 0,"
                        "  status TEXT,"
-                       "  excluded INTEGER NOT NULL DEFAULT 0)"),
+                       "  excluded INTEGER NOT NULL DEFAULT 0,"
+                       "  category_is_provider_set INTEGER NOT NULL DEFAULT 0)"),
         QStringLiteral("CREATE INDEX IF NOT EXISTS idx_tx_booking_date"
                        "  ON transactions(booking_date)"),
         QStringLiteral("CREATE INDEX IF NOT EXISTS idx_tx_institution"
@@ -135,9 +139,18 @@ bool TransactionStore::migrate(QString *errorMessage)
     // older build, so a column added after the fact has to be applied
     // separately. Asked for rather than attempted-and-ignored: swallowing the
     // error would also swallow a genuinely broken database.
-    if (!hasColumn(database, QStringLiteral("excluded"))) {
-        if (!query.exec(QStringLiteral("ALTER TABLE transactions"
-                                       " ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0"))) {
+    const QList<QPair<QString, QString>> addedColumns = {
+        {QStringLiteral("excluded"),
+         QStringLiteral("ALTER TABLE transactions"
+                        " ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0")},
+        {QStringLiteral("category_is_provider_set"),
+         QStringLiteral("ALTER TABLE transactions"
+                        " ADD COLUMN category_is_provider_set INTEGER NOT NULL DEFAULT 0")},
+    };
+    for (const auto &[column, statement] : addedColumns) {
+        if (hasColumn(database, column))
+            continue;
+        if (!query.exec(statement)) {
             if (errorMessage)
                 *errorMessage = QStringLiteral("Schema migration failed: %1")
                                     .arg(query.lastError().text());
@@ -171,10 +184,11 @@ int TransactionStore::upsert(const TransactionList &transactions, QString *error
     insert.prepare(QStringLiteral(
         "INSERT INTO transactions (id, source, institution, account_id, account_name,"
         "  booking_date, value_date, description, counterparty, reference,"
-        "  amount_minor, currency, category, category_is_user_set, status, excluded)"
+        "  amount_minor, currency, category, category_is_user_set, status, excluded,"
+        "  category_is_provider_set)"
         " VALUES (:id, :source, :institution, :account_id, :account_name,"
         "  :booking_date, :value_date, :description, :counterparty, :reference,"
-        "  :amount_minor, :currency, :category, 0, :status, 0)"
+        "  :amount_minor, :currency, :category, 0, :status, 0, :from_provider)"
         " ON CONFLICT(id) DO UPDATE SET"
         "  account_name = excluded.account_name,"
         "  booking_date = excluded.booking_date,"
@@ -186,7 +200,8 @@ int TransactionStore::upsert(const TransactionList &transactions, QString *error
         "  currency = excluded.currency,"
         "  status = excluded.status,"
         "  category = CASE WHEN transactions.category_is_user_set = 1"
-        "                  THEN transactions.category ELSE excluded.category END"));
+        "                  THEN transactions.category ELSE excluded.category END,"
+        "  category_is_provider_set = excluded.category_is_provider_set"));
 
     int inserted = 0;
     for (const Transaction &transaction : transactions) {
@@ -210,6 +225,7 @@ int TransactionStore::upsert(const TransactionList &transactions, QString *error
         insert.bindValue(QStringLiteral(":currency"), transaction.currency);
         insert.bindValue(QStringLiteral(":category"), transaction.category);
         insert.bindValue(QStringLiteral(":status"), transaction.status);
+        insert.bindValue(QStringLiteral(":from_provider"), transaction.categoryFromProvider ? 1 : 0);
 
         if (!insert.exec()) {
             const QString failure = insert.lastError().text();
@@ -329,6 +345,28 @@ QList<TransactionStore::MonthlySpend> TransactionStore::monthlySpend(const QDate
     return results;
 }
 
+QString TransactionStore::dominantCurrency(const QString &institution) const
+{
+    QSqlQuery query(QSqlDatabase::database(m_connectionName));
+    query.prepare(QStringLiteral("SELECT currency FROM transactions"
+                                 " WHERE institution = ? AND currency <> ''"
+                                 " GROUP BY currency ORDER BY COUNT(*) DESC, currency LIMIT 1"));
+    query.addBindValue(institution);
+    if (query.exec() && query.next())
+        return query.value(0).toString();
+    return {};
+}
+
+int TransactionStore::countInCategory(const QString &category) const
+{
+    QSqlQuery query(QSqlDatabase::database(m_connectionName));
+    query.prepare(QStringLiteral("SELECT COUNT(*) FROM transactions WHERE category = ?"));
+    query.addBindValue(category);
+    if (query.exec() && query.next())
+        return query.value(0).toInt();
+    return 0;
+}
+
 QStringList TransactionStore::institutions() const
 {
     QSqlQuery query(QSqlDatabase::database(m_connectionName));
@@ -389,6 +427,62 @@ bool TransactionStore::setCategory(const QString &transactionId, const QString &
     return true;
 }
 
+int TransactionStore::recategorise(const Categoriser &categoriser, QString *errorMessage)
+{
+    QSqlDatabase database = QSqlDatabase::database(m_connectionName);
+    if (!database.transaction()) {
+        if (errorMessage)
+            *errorMessage = database.lastError().text();
+        return -1;
+    }
+
+    QSqlQuery read(database);
+    // Neither the user's own decisions nor a provider's: only rows whose
+    // category came from the rules in the first place are the rules' to revise.
+    if (!read.exec(QStringLiteral("SELECT * FROM transactions"
+                                  " WHERE category_is_user_set = 0"
+                                  "   AND category_is_provider_set = 0"))) {
+        if (errorMessage)
+            *errorMessage = read.lastError().text();
+        database.rollback();
+        return -1;
+    }
+
+    TransactionList rows;
+    while (read.next())
+        rows.append(rowToTransaction(read));
+    read.finish();
+
+    QSqlQuery update(database);
+    update.prepare(QStringLiteral("UPDATE transactions SET category = ? WHERE id = ?"));
+
+    int changed = 0;
+    for (const Transaction &transaction : rows) {
+        const QString category = categoriser.categorise(transaction);
+        if (category == transaction.category)
+            continue;
+
+        update.addBindValue(category);
+        update.addBindValue(transaction.id);
+        if (!update.exec()) {
+            if (errorMessage)
+                *errorMessage = update.lastError().text();
+            database.rollback();
+            return -1;
+        }
+        update.finish();
+        ++changed;
+    }
+
+    if (!database.commit()) {
+        if (errorMessage)
+            *errorMessage = database.lastError().text();
+        database.rollback();
+        return -1;
+    }
+    return changed;
+}
+
 bool TransactionStore::setExcluded(const QString &transactionId, bool excluded,
                                   QString *errorMessage)
 {
@@ -397,6 +491,17 @@ bool TransactionStore::setExcluded(const QString &transactionId, bool excluded,
     query.addBindValue(excluded ? 1 : 0);
     query.addBindValue(transactionId);
     if (!query.exec()) {
+        if (errorMessage)
+            *errorMessage = query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool TransactionStore::clear(QString *errorMessage)
+{
+    QSqlQuery query(QSqlDatabase::database(m_connectionName));
+    if (!query.exec(QStringLiteral("DELETE FROM transactions"))) {
         if (errorMessage)
             *errorMessage = query.lastError().text();
         return false;

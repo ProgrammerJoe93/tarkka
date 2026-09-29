@@ -30,6 +30,32 @@ struct SyncWindow
             window.to = qMin(rangeTo.addDays(1), today);
         return window;
     }
+
+    bool isValid() const { return from.isValid() && to.isValid() && from <= to; }
+
+    /*!
+     * A narrower window to retry with after a bank refused the period.
+     *
+     * Banks cap how far back they will serve once the initial consent is a few
+     * days old -- ninety days is the usual figure -- and answer 422 for
+     * anything older rather than returning the part they do have. Retrying
+     * from inside that cap saves the account's recent rows instead of losing
+     * them along with the old ones.
+     *
+     * Returns an invalid window when there is nothing narrower worth asking
+     * for: either the request was already inside the cap, so the refusal was
+     * about something else, or the whole window predates it and the bank has
+     * nothing to give.
+     */
+    static SyncWindow narrowed(const SyncWindow &window, const QDate &today, int historyDays = 90)
+    {
+        if (!window.isValid())
+            return {};
+        const QDate floor = today.addDays(-historyDays);
+        if (window.from >= floor || floor > window.to)
+            return {};
+        return SyncWindow{floor, window.to};
+    }
 };
 
 /*!

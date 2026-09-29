@@ -53,10 +53,24 @@ public:
         AmountTextRole,
         ShareRole,
         TransactionCountRole,
+        //! Monthly target in minor units, or -1 where none is set.
+        TargetMinorRole,
+        TargetTextRole,
+        //! Spent as a fraction of the target; may exceed 1.
+        TargetShareRole,
+        OverTargetRole,
     };
     Q_ENUM(Role)
 
     explicit SummaryModel(QObject *parent = nullptr);
+
+    /*!
+     * Monthly targets by category, for the progress the dashboard bars show.
+     *
+     * Held rather than passed to setTransactions() because budgets change on
+     * their own schedule -- editing one must not require re-querying the rows.
+     */
+    void setTargets(const QHash<QString, qint64> &targets);
 
     //! \a from and \a to bound the daily series so empty days still appear.
     void setTransactions(const TransactionList &transactions,
@@ -125,6 +139,7 @@ private:
 
     QList<Bucket> m_buckets;
     CategoryTotalsModel m_income;
+    QHash<QString, qint64> m_targets;
     QVariantList m_dailySpend;
     qint64 m_totalSpentMinor = 0;
     qint64 m_totalReceivedMinor = 0;

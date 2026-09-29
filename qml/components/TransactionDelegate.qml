@@ -23,7 +23,7 @@ ItemDelegate {
         counterparty.length > 0 && description.length > 0 && description !== counterparty
             ? description : accountName
 
-    signal categoryEditRequested(string transactionId, string category)
+    signal categoryEditRequested(string transactionId, string category, string merchant)
     signal excludeToggleRequested(string transactionId, bool excluded)
 
     width: ListView.view ? ListView.view.width : implicitWidth
@@ -130,7 +130,8 @@ ItemDelegate {
                     maximumWidth: 120
                     category: delegate.category
                     onTapped: delegate.categoryEditRequested(delegate.transactionId,
-                                                             delegate.category)
+                                                             delegate.category,
+                                                             delegate.primaryText)
                 }
 
                 Text {
@@ -159,7 +160,8 @@ ItemDelegate {
             Layout.preferredWidth: visible ? implicitWidth : 0
             Layout.preferredHeight: 22
             category: delegate.category
-            onTapped: delegate.categoryEditRequested(delegate.transactionId, delegate.category)
+            onTapped: delegate.categoryEditRequested(delegate.transactionId, delegate.category,
+                                                     delegate.primaryText)
         }
 
         Text {

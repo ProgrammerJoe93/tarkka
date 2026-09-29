@@ -26,6 +26,8 @@ private slots:
     void leavesInternalTransfersOutOfTheTotals();
     void addsTheExcludedColumnToAnOlderDatabase();
     void keepsAnExcludedRowExcludedOnResync();
+    void recategorisesOnlyRowsTheUserHasNotSet();
+    void leavesAProviderChosenCategoryAlone();
     void leavesExcludedRowsOutOfTheTotals();
     void groupsIncomingMoneyByCategory();
     void appliesTheSameExclusionsToIncome();
@@ -148,6 +150,11 @@ void TestStore::addsTheExcludedColumnToAnOlderDatabase()
 
     QVERIFY(store.setExcluded(QStringLiteral("old"), true));
     QVERIFY(store.query({}).first().excluded);
+
+    // The second column added after the fact must arrive the same way, or a
+    // database from an older build fails on every recategorisation instead.
+    QString errorMessage;
+    QVERIFY2(store.recategorise(Categoriser(), &errorMessage) >= 0, qPrintable(errorMessage));
 }
 
 void TestStore::keepsAnExcludedRowExcludedOnResync()
@@ -172,6 +179,81 @@ void TestStore::keepsAnExcludedRowExcludedOnResync()
 
     QVERIFY(store.setExcluded(QStringLiteral("skip"), false));
     QVERIFY(!store.query({}).first().excluded);
+}
+
+void TestStore::recategorisesOnlyRowsTheUserHasNotSet()
+{
+    TransactionStore store;
+    QVERIFY(store.open(m_directory.filePath(QStringLiteral("rules.sqlite"))));
+    QCOMPARE(store.upsert({
+                 make("auto", QDate(2026, 9, 1), -1000, "Aktia", "Uncategorised", "PUUTARHA OY"),
+                 make("byhand", QDate(2026, 9, 2), -2000, "Aktia", "Uncategorised", "PUUTARHA OY"),
+             }),
+             2);
+    QVERIFY(store.setCategory(QStringLiteral("byhand"), QStringLiteral("Gifts")));
+
+    Categoriser categoriser;
+    Categoriser::Rule rule;
+    rule.category = QStringLiteral("Hobbies");
+    rule.pattern = QRegularExpression(QStringLiteral("puutarha"),
+                                      QRegularExpression::CaseInsensitiveOption);
+    categoriser.setRules({rule});
+
+    QString errorMessage;
+    const int changed = store.recategorise(categoriser, &errorMessage);
+    QVERIFY2(changed >= 0, qPrintable(errorMessage));
+    QCOMPARE(changed, 1);
+
+    // The rule claimed the automatic row and left the hand-set one alone: an
+    // explicit decision on one row outranks a rule, even a newer rule.
+    TransactionStore::Filter filter;
+    const TransactionList rows = store.query(filter);
+    for (const Transaction &row : rows) {
+        if (row.id == QStringLiteral("auto"))
+            QCOMPARE(row.category, QStringLiteral("Hobbies"));
+        else
+            QCOMPARE(row.category, QStringLiteral("Gifts"));
+    }
+}
+
+void TestStore::leavesAProviderChosenCategoryAlone()
+{
+    TransactionStore store;
+    QVERIFY(store.open(m_directory.filePath(QStringLiteral("provenance.sqlite"))));
+
+    // A Trading 212 deposit: a transfer because of what it is, not who it was
+    // paid to. Re-running merchant rules over it would call it income.
+    Transaction deposit = make("dep", QDate(2026, 9, 1), 50000, "Trading 212", "Transfers",
+                               "PUUTARHA OY");
+    deposit.categoryFromProvider = true;
+
+    Transaction guessed = make("guess", QDate(2026, 9, 2), -1000, "Aktia", "Uncategorised",
+                               "PUUTARHA OY");
+
+    QCOMPARE(store.upsert({deposit, guessed}), 2);
+
+    Categoriser categoriser;
+    Categoriser::Rule rule;
+    rule.category = QStringLiteral("Hobbies");
+    rule.pattern = QRegularExpression(QStringLiteral("puutarha"),
+                                      QRegularExpression::CaseInsensitiveOption);
+    categoriser.setRules({rule});
+
+    QString errorMessage;
+    const int changed = store.recategorise(categoriser, &errorMessage);
+    QVERIFY2(changed >= 0, qPrintable(errorMessage));
+    // Only the guessed row moved, even though the rule matches both.
+    QCOMPARE(changed, 1);
+
+    const TransactionList rows = store.query({});
+    for (const Transaction &row : rows) {
+        if (row.id == QStringLiteral("dep")) {
+            QCOMPARE(row.category, QStringLiteral("Transfers"));
+            QVERIFY(row.categoryFromProvider);
+        } else {
+            QCOMPARE(row.category, QStringLiteral("Hobbies"));
+        }
+    }
 }
 
 void TestStore::updatesPendingRowToBooked()

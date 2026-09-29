@@ -33,6 +33,10 @@ ColumnLayout {
             required property string amountText
             required property real share
             required property int transactionCount
+            //! Empty when the model carries no budget for this category.
+            required property string targetText
+            required property real targetShare
+            required property bool overTarget
 
             readonly property color barColor: Theme.colorForCategory(row.category)
 
@@ -80,8 +84,15 @@ ColumnLayout {
                     }
 
                     Text {
+                        visible: row.targetText.length > 0
+                        text: qsTr("of %1").arg(row.targetText)
+                        color: row.overTarget ? Theme.negative : Theme.textFaint
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    Text {
                         text: row.amountText
-                        color: Theme.text
+                        color: row.overTarget ? Theme.negative : Theme.text
                         font.pixelSize: Theme.fontSizeBody
                         font.weight: Font.DemiBold
                     }
@@ -93,11 +104,18 @@ ColumnLayout {
                     radius: 3
                     color: Theme.surfaceRaised
 
+                    /*
+                     * With a budget set the bar measures spending against that
+                     * budget; without one it measures it against the largest
+                     * category, as before. Two different questions, and the
+                     * budget is the one you asked to be told about.
+                     */
                     Rectangle {
-                        width: parent.width * Math.max(0.02, row.share)
+                        width: parent.width * Math.min(1, Math.max(
+                            0.02, row.targetText.length > 0 ? row.targetShare : row.share))
                         height: parent.height
                         radius: parent.radius
-                        color: row.barColor
+                        color: row.overTarget ? Theme.negative : row.barColor
 
                         Behavior on width {
                             NumberAnimation { duration: 220; easing.type: Easing.OutCubic }

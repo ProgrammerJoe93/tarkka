@@ -155,7 +155,9 @@ ScrollView {
 
         GridLayout {
             Layout.fillWidth: true
-            columns: view.availableWidth > 720 ? 3 : 1
+            // Four cards when a balance is available, three otherwise; one per
+            // row on a phone either way.
+            columns: view.availableWidth > 720 ? (AppController.hasBalances ? 4 : 3) : 1
             columnSpacing: Theme.spacing
             rowSpacing: Theme.spacing
 
@@ -176,6 +178,21 @@ ScrollView {
                 label: qsTr("RECEIVED")
                 value: AppController.summary.totalReceivedText
                 valueColor: Theme.positive
+            }
+
+            SummaryCard {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                // Only when a bank actually served one: an account whose bank
+                // does not report balances would otherwise show a confident
+                // zero, which is worse than showing nothing.
+                visible: AppController.hasBalances
+                label: qsTr("IN ACCOUNTS")
+                value: AppController.totalBalanceText
+                caption: AppController.balancesInOtherCurrencies > 0
+                         ? qsTr("%n account(s) in other currencies are not included", "",
+                                AppController.balancesInOtherCurrencies)
+                         : qsTr("As your banks last reported")
             }
 
             SummaryCard {

@@ -13,6 +13,7 @@ class TestTrading212 : public QObject
 
 private slots:
     void parsesTheCardOnlyExportHeader();
+    void marksOnlyActionDerivedCategoriesAsAuthoritative();
     void recognisesTheExportHeader();
     void doesNotClaimAPlainBankExport();
     void mapsCardSpending();
@@ -259,6 +260,39 @@ void TestTrading212::parsesTheCardOnlyExportHeader()
     QCOMPARE(rows.first().currency, QStringLiteral("EUR"));
     QCOMPARE(rows.first().counterparty, QStringLiteral("K-Market Kamppi"));
     QCOMPARE(rows.first().reference, QStringLiteral("abc-123"));
+}
+
+void TestTrading212::marksOnlyActionDerivedCategoriesAsAuthoritative()
+{
+    const QByteArray header =
+        "Action,Time (UTC),Notes,ID,Total,Currency (Total),Currency conversion fee,"
+        "Currency (Currency conversion fee),Merchant name,Merchant category\n";
+
+    /*
+     * Two rows, two kinds of category. The deposit is a transfer because of its
+     * action, which no merchant rule could work out -- that one is the
+     * provider's to keep. The card purchase carries the broker's own taxonomy
+     * ("RETAIL_STORES"), which is a starting point the user's rules must be
+     * able to override; marking it authoritative put those rows beyond reach.
+     */
+    const QByteArray csv = header +
+        "Deposit,2026-09-02 09:00:00,,dep-1,500.00,EUR,0.00,EUR,,\n"
+        "Card debit,2026-09-04 12:34:56,,card-1,-24.90,EUR,0.00,EUR,Verkkokauppa,RETAIL_STORES\n";
+
+    QString errorMessage;
+    const TransactionList rows = Trading212::parse(tableOf(csv), &errorMessage);
+    QVERIFY2(errorMessage.isEmpty(), qPrintable(errorMessage));
+    QCOMPARE(rows.size(), 2);
+
+    for (const Transaction &row : rows) {
+        if (row.category == QStringLiteral("Transfers")) {
+            QVERIFY2(row.categoryFromProvider, "an action-derived category is the provider's");
+        } else {
+            QCOMPARE(row.category, QStringLiteral("RETAIL_STORES"));
+            QVERIFY2(!row.categoryFromProvider,
+                     "a reported merchant category is only a starting point");
+        }
+    }
 }
 
 QTEST_APPLESS_MAIN(TestTrading212)

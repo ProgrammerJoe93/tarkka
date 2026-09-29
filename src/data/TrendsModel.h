@@ -51,6 +51,18 @@ public:
          * either would be a lie.
          */
         ChangeDirectionRole,
+        //! Monthly target in minor units, or -1 where none is set.
+        TargetMinorRole,
+        TargetTextRole,
+        /*!
+         * What this category's history suggests a monthly target could be.
+         *
+         * Offered because a blank field is where budgeting stops for most
+         * people: inventing a number for every category from nothing is the
+         * hard part, and the months are right there on the same row.
+         */
+        SuggestedMinorRole,
+        SuggestedTextRole,
     };
     Q_ENUM(Role)
 
@@ -71,6 +83,9 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
+    //! Monthly targets by category; see SummaryModel::setTargets.
+    void setTargets(const QHash<QString, qint64> &targets);
+
     QVariantList months() const { return m_months; }
     QString currency() const { return m_currency; }
     bool hasData() const { return !m_rows.isEmpty(); }
@@ -88,7 +103,11 @@ private:
         QList<qint64> spentMinor;  //!< One per month, in window order.
     };
 
+    //! The median month, or the mean when the median is nothing; -1 if neither.
+    qint64 suggestionFor(const Row &row) const;
+
     QList<Row> m_rows;
+    QHash<QString, qint64> m_targets;
     QVariantList m_months;
     QList<qint64> m_monthTotals;
     QString m_currency;

@@ -16,6 +16,7 @@
 namespace {
 
 constexpr auto kExportsPath = "/api/v0/equity/history/exports";
+constexpr auto kCashPath = "/api/v0/equity/account/cash";
 /*
  * Listing reports is documented at one request per minute, and requesting one
  * at one per thirty seconds. Polling faster does not get the report sooner, it
@@ -86,7 +87,42 @@ void Trading212Provider::fetch(const QDate &from, const QDate &to)
     m_busy = true;
     m_reportId = -1;
     m_pollsRemaining = kMaxPolls;
+    // Alongside the export rather than after it: the cash figure does not
+    // depend on the report, and waiting would delay it by a minute or two.
+    fetchCash();
     requestExport(from, to);
+}
+
+void Trading212Provider::fetchCash()
+{
+    if (!isConfigured())
+        return;
+
+    m_http->setBaseUrl(QUrl(m_settings.trading212BaseUrl()));
+    m_http->setAuthorizationHeader(basicAuthHeader(m_settings.trading212ApiKey(),
+                                                   m_settings.trading212ApiSecret()));
+
+    m_http->get(QLatin1String(kCashPath), {}, [this](const HttpClient::Response &response) {
+        if (!response.ok)
+            return;
+
+        /*
+         * The live response is {"free", "total", "ppl", "result", "invested",
+         * "pieCash", "blocked"} -- the older field names, not the
+         * "availableToTrade" the current documentation describes, so both are
+         * accepted. "free" is the uninvested cash of the investing account:
+         * the main pot. The card's spending pot is not in this response, and
+         * no documented endpoint returns it.
+         */
+        const QJsonObject cash = response.body.object();
+        const QJsonValue free = cash.contains(QStringLiteral("free"))
+                                    ? cash.value(QStringLiteral("free"))
+                                    : cash.value(QStringLiteral("availableToTrade"));
+        if (!free.isDouble())
+            return;
+
+        emit cashReported(static_cast<qint64>(qRound64(free.toDouble() * 100.0)));
+    });
 }
 
 void Trading212Provider::requestExport(const QDate &from, const QDate &to)

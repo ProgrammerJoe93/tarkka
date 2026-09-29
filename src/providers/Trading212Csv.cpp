@@ -160,11 +160,23 @@ TransactionList parse(const Csv::Table &table, QString *errorMessage)
 
         transaction.reference = Csv::cell(row, idColumn);
 
-        if (rule && *rule->category)
+        if (rule && *rule->category) {
+            /*
+             * Derived from the action, which is something no merchant rule can
+             * know: a deposit is a transfer because of what it is, not who it
+             * was paid to. Marked so that re-running the rules leaves it alone.
+             */
             transaction.category = QString::fromLatin1(rule->category);
+            transaction.categoryFromProvider = true;
+        }
 
-        // The merchant category the card reports is a better starting point
-        // than a name-pattern guess, so keep it when nothing else applies.
+        /*
+         * The merchant category the card reports is a better starting point
+         * than a name-pattern guess, so keep it when nothing else applies --
+         * but only a starting point. It is left unmarked so that a rule the
+         * user writes can still override it; the broker's own taxonomy
+         * ("RETAIL_STORES") is not the vocabulary the rest of the app speaks.
+         */
         if (transaction.category.isEmpty() && merchantCategoryColumn >= 0) {
             const QString reported = Csv::cell(row, merchantCategoryColumn);
             if (!reported.isEmpty())

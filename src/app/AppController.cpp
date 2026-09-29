@@ -1,5 +1,8 @@
 #include "app/AppController.h"
 
+#include "core/Money.h"
+#include "core/Recurring.h"
+
 #include "data/AccountModel.h"
 #include "providers/CsvProvider.h"
 #include "providers/Provider.h"
@@ -39,6 +42,10 @@ AppController::AppController(QObject *parent)
         m_categoriser.saveToFile(rulesPath);
     }
 
+    QString budgetError;
+    if (!m_budgets.loadFromFile(Settings::budgetsPath(), &budgetError))
+        report(budgetError, true);
+
     // Default to the current calendar month.
     const QDate today = QDate::currentDate();
     m_filter.from = QDate(today.year(), today.month(), 1);
@@ -68,8 +75,15 @@ AppController::AppController(QObject *parent)
                 m_banks = banks;
                 emit banksChanged();
             });
+    connect(m_trading212, &Trading212Provider::cashReported, this, [this](qint64 freeMinor) {
+        m_trading212Cash = freeMinor;
+        emit trading212CashChanged();
+    });
     connect(m_bank, &EnableBankingProvider::accountsChanged, this, [this] {
         emit dataChanged();
+        // Balances arrive one account at a time after the list is already
+        // shown, so the totals have to be re-read as each lands.
+        emit accountsChanged();
     });
     connect(m_bank, &EnableBankingProvider::connected, this, [this] {
         // The consent flow ends here rather than with finished(), so close out
@@ -104,10 +118,32 @@ void AppController::beginTask()
 void AppController::endTask()
 {
     m_activeTasks = qMax(0, m_activeTasks - 1);
-    if (m_activeTasks == 0 && m_busy) {
+    if (m_activeTasks > 0)
+        return;
+
+    if (m_busy) {
         m_busy = false;
         emit busyChanged();
     }
+
+    /*
+     * Rules are re-applied once every provider has finished rather than per
+     * row as it arrives, so a rule added after a row was first stored still
+     * claims it. Once at the end rather than once per provider: three banks
+     * syncing together would otherwise walk the table three times for the same
+     * answer.
+     *
+     * Only rows the rules themselves categorised are revised; see
+     * TransactionStore::recategorise.
+     */
+    QString errorMessage;
+    const int moved = m_store.recategorise(m_categoriser, &errorMessage);
+    if (moved < 0) {
+        report(errorMessage, true);
+        return;
+    }
+    if (moved > 0)
+        reload();
 }
 
 void AppController::report(const QString &message, bool isError)
@@ -128,6 +164,14 @@ void AppController::dismissStatus()
 
 void AppController::ingest(const TransactionList &transactions)
 {
+    /*
+     * Providers mark categoryFromProvider themselves, because only they can
+     * tell an answer they are sure of from a starting point they guessed.
+     * Inferring it here from "a category is present" got that wrong: Trading
+     * 212 reports a raw merchant category on most card rows, and treating that
+     * as authoritative put a thousand rows beyond the reach of the user's own
+     * rules.
+     */
     TransactionList categorised = transactions;
     for (Transaction &transaction : categorised) {
         if (transaction.category.isEmpty())
@@ -162,6 +206,7 @@ void AppController::reload()
 
     m_transactionModel.setTransactions(rows);
     m_summaryModel.setTransactions(rows, m_filter.from, m_filter.to);
+    m_summaryModel.setTargets(m_budgets.all());
     refreshTrends();
     emit dataChanged();
 }
@@ -188,6 +233,48 @@ void AppController::refreshTrends()
         report(errorMessage, true);
 
     m_trendsModel.setSpending(spending, months, m_filter.currency);
+    m_trendsModel.setTargets(m_budgets.all());
+
+    /*
+     * Standing payments need the individual rows rather than monthly totals,
+     * and several months of them: three occurrences is the least that is a
+     * pattern rather than a coincidence. The same window as the comparison, so
+     * both answer for the same stretch of time.
+     */
+    TransactionStore::Filter window;
+    window.from = months.constFirst();
+    window.to = lastMonth.addMonths(1).addDays(-1);
+    window.currency = m_filter.currency;
+    const TransactionList windowRows = m_store.query(window, &errorMessage);
+    if (!errorMessage.isEmpty())
+        report(errorMessage, true);
+    m_recurringModel.setPayments(Recurring::find(windowRows, m_filter.currency),
+                                 m_filter.currency);
+}
+
+void AppController::setBudget(const QString &category, const QString &amountText)
+{
+    const QString trimmed = amountText.trimmed();
+    if (trimmed.isEmpty()) {
+        m_budgets.setTarget(category, -1);
+    } else {
+        bool parsed = false;
+        const qint64 minor = Money::fromDecimalString(trimmed, &parsed);
+        if (!parsed || minor < 0) {
+            report(tr("%1 is not an amount this can budget.").arg(trimmed), true);
+            return;
+        }
+        m_budgets.setTarget(category, minor);
+    }
+
+    QString errorMessage;
+    if (!m_budgets.saveToFile(Settings::budgetsPath(), &errorMessage)) {
+        report(errorMessage, true);
+        return;
+    }
+
+    m_summaryModel.setTargets(m_budgets.all());
+    m_trendsModel.setTargets(m_budgets.all());
 }
 
 QStringList AppController::institutions() const
@@ -198,6 +285,52 @@ QStringList AppController::institutions() const
 QStringList AppController::categories() const
 {
     return m_store.isOpen() ? m_store.categories() : QStringList();
+}
+
+QString AppController::totalBalanceText() const
+{
+    qint64 total = 0;
+    for (const AccountModel::Account &account : m_bank->accountModel()->accounts()) {
+        if (account.hasBalance && account.balanceCurrency == m_filter.currency)
+            total += account.balanceMinor;
+    }
+    return Money::format(total, m_filter.currency);
+}
+
+bool AppController::hasBalances() const
+{
+    for (const AccountModel::Account &account : m_bank->accountModel()->accounts()) {
+        if (account.hasBalance && account.balanceCurrency == m_filter.currency)
+            return true;
+    }
+    return false;
+}
+
+int AppController::balancesInOtherCurrencies() const
+{
+    int others = 0;
+    for (const AccountModel::Account &account : m_bank->accountModel()->accounts()) {
+        if (account.hasBalance && account.balanceCurrency != m_filter.currency)
+            ++others;
+    }
+    return others;
+}
+
+QString AppController::trading212CashText() const
+{
+    if (m_trading212Cash < 0)
+        return {};
+    // The cash endpoint reports no currency, so it is taken from the rows
+    // Trading 212 has already supplied rather than assumed.
+    const QString currency = m_store.isOpen()
+                                 ? m_store.dominantCurrency(QStringLiteral("Trading 212"))
+                                 : QString();
+    return Money::format(m_trading212Cash, currency);
+}
+
+int AppController::uncategorisedCount() const
+{
+    return m_store.isOpen() ? m_store.countInCategory(Categoriser::uncategorised()) : 0;
 }
 
 QStringList AppController::currencies() const
@@ -423,6 +556,82 @@ void AppController::setTransactionExcluded(const QString &transactionId, bool ex
         return;
     }
     reload();
+}
+
+void AppController::addCategoryRule(const QString &merchant, const QString &category)
+{
+    const QString text = merchant.trimmed();
+    if (text.isEmpty() || category.trimmed().isEmpty()) {
+        report(tr("A rule needs both a merchant and a category."), true);
+        return;
+    }
+
+    // Escaped: the merchant came from a transaction, so characters that happen
+    // to be regex operators are literal parts of a name rather than syntax.
+    Categoriser::Rule rule;
+    rule.category = category.trimmed();
+    rule.pattern = QRegularExpression(QRegularExpression::escape(text),
+                                      QRegularExpression::CaseInsensitiveOption);
+
+    // Replaces any rule already matching this merchant rather than adding a
+    // second that disagrees with it; see Categoriser::setRule.
+    m_categoriser.setRule(rule);
+
+    QString errorMessage;
+    if (!m_categoriser.saveToFile(Settings::categoryRulesPath(), &errorMessage)) {
+        report(errorMessage, true);
+        return;
+    }
+
+    /*
+     * Applied to what is already stored, or the rule would only affect rows
+     * that have yet to arrive and the screen would not change. Rows the user
+     * categorised by hand are left alone: an explicit decision on one row
+     * outranks a rule, even a rule the same user just wrote.
+     */
+    const int changed = m_store.recategorise(m_categoriser, &errorMessage);
+    if (changed < 0) {
+        report(errorMessage, true);
+        return;
+    }
+
+    reload();
+    emit dataChanged();
+    report(tr("%n transaction(s) moved to %1.", nullptr, changed).arg(rule.category), false);
+}
+
+void AppController::resetCategoryRules()
+{
+    m_categoriser.setRules(Categoriser::defaultRules());
+
+    QString errorMessage;
+    if (!m_categoriser.saveToFile(Settings::categoryRulesPath(), &errorMessage)) {
+        report(errorMessage, true);
+        return;
+    }
+
+    const int moved = m_store.recategorise(m_categoriser, &errorMessage);
+    if (moved < 0) {
+        report(errorMessage, true);
+        return;
+    }
+
+    reload();
+    emit dataChanged();
+    report(tr("Category rules reset. %n transaction(s) moved.", nullptr, moved), false);
+}
+
+void AppController::deleteAllTransactions()
+{
+    QString errorMessage;
+    if (!m_store.clear(&errorMessage)) {
+        report(errorMessage, true);
+        return;
+    }
+
+    reload();
+    emit dataChanged();
+    report(tr("All stored transactions were deleted. Bank connections were kept."), false);
 }
 
 void AppController::disconnectAll()

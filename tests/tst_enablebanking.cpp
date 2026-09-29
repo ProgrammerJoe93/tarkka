@@ -13,6 +13,9 @@ class TestEnableBanking : public QObject
 
 private slots:
     void clampsTheSyncWindowToToday();
+    void narrowsToWhatABankWillServe();
+    void doesNotNarrowAWindowAlreadyInsideTheCap();
+    void doesNotNarrowAWindowEntirelyTooOld();
     void leavesAPastRangeAlone();
     void widensTheStartForLateBookings();
     void identifiesAPaymentAccountByIban();
@@ -231,6 +234,53 @@ void TestEnableBanking::clampsTheSyncWindowToToday()
 
     QCOMPARE(window.to, today);
     QVERIFY(window.to <= today);
+}
+
+void TestEnableBanking::narrowsToWhatABankWillServe()
+{
+    const QDate today(2026, 9, 13);
+    /*
+     * June, viewed in September: the window starts before the ninety days a
+     * bank will serve and ends after, so the bank refuses all of it rather
+     * than returning the part it has. Retrying from the cap keeps the days it
+     * was always willing to give.
+     */
+    const SyncWindow june = SyncWindow::forRange(QDate(2026, 6, 1), QDate(2026, 6, 30), today);
+    QVERIFY(june.from < QDate(2026, 6, 15));
+    QVERIFY(june.to > QDate(2026, 6, 15));
+
+    const SyncWindow retry = SyncWindow::narrowed(june, today);
+    QVERIFY(retry.isValid());
+    QCOMPARE(retry.from, QDate(2026, 6, 15));
+    QCOMPARE(retry.to, june.to);
+}
+
+void TestEnableBanking::doesNotNarrowAWindowAlreadyInsideTheCap()
+{
+    const QDate today(2026, 9, 13);
+    // The current month is well inside ninety days, so a refusal was about
+    // something else and asking again the same way would just fail twice.
+    const SyncWindow september =
+        SyncWindow::forRange(QDate(2026, 9, 1), QDate(2026, 9, 30), today);
+
+    QVERIFY(!SyncWindow::narrowed(september, today).isValid());
+}
+
+void TestEnableBanking::doesNotNarrowAWindowEntirelyTooOld()
+{
+    const QDate today(2026, 9, 13);
+    /*
+     * May, viewed in September, is already wholly outside ninety days -- there
+     * is no narrower window to ask for, because every day of it predates what
+     * the bank will serve. The user gets told that rather than watching a
+     * retry fail the same way.
+     */
+    const SyncWindow may = SyncWindow::forRange(QDate(2026, 5, 1), QDate(2026, 5, 31), today);
+    QVERIFY(!SyncWindow::narrowed(may, today).isValid());
+
+    // And the same for something far older still.
+    const SyncWindow lastYear = SyncWindow::forRange(QDate(2025, 3, 1), QDate(2025, 3, 31), today);
+    QVERIFY(!SyncWindow::narrowed(lastYear, today).isValid());
 }
 
 void TestEnableBanking::leavesAPastRangeAlone()

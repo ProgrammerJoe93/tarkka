@@ -91,6 +91,7 @@ Item {
                 Layout.preferredWidth: 180
                 Layout.preferredHeight: 36
                 model: [qsTr("All categories")].concat(AppController.categories)
+
                 currentIndex: AppController.categoryFilter === ""
                               ? 0
                               : Math.max(0, AppController.categories
@@ -184,6 +185,42 @@ Item {
                     }
                 }
             }
+
+            /*
+             * A way in to the rows no rule claimed. They are invisible in a
+             * total while quietly making every category wrong, so the count is
+             * put where it will be noticed and one tap filters to them.
+             */
+            Rectangle {
+                visible: AppController.uncategorisedCount > 0
+                Layout.preferredWidth: visible ? uncategorisedLabel.implicitWidth + 20 : 0
+                Layout.preferredHeight: 28
+                radius: 14
+                color: uncategorisedHover.hovered ? Qt.alpha(Theme.warning, 0.22)
+                                                  : Qt.alpha(Theme.warning, 0.14)
+
+                Accessible.role: Accessible.Button
+                Accessible.name: uncategorisedLabel.text
+
+                Text {
+                    id: uncategorisedLabel
+
+                    anchors.centerIn: parent
+                    text: qsTr("%n uncategorised", "", AppController.uncategorisedCount)
+                    color: Theme.warning
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.weight: Font.DemiBold
+                }
+
+                TapHandler {
+                    onTapped: AppController.categoryFilter = AppController.uncategorisedName()
+                }
+
+                HoverHandler {
+                    id: uncategorisedHover
+                    cursorShape: Qt.PointingHandCursor
+                }
+            }
         }
 
         Rectangle {
@@ -210,9 +247,10 @@ Item {
                 }
 
                 delegate: TransactionDelegate {
-                    onCategoryEditRequested: (transactionId, category) => {
+                    onCategoryEditRequested: (transactionId, category, merchant) => {
                         categoryDialog.transactionId = transactionId;
                         categoryDialog.currentCategory = category;
+                        categoryDialog.merchant = merchant;
                         categoryDialog.open();
                     }
                     onExcludeToggleRequested: (transactionId, excluded) =>
@@ -237,6 +275,8 @@ Item {
 
         property string transactionId: ""
         property string currentCategory: ""
+        //! The merchant a rule would match, from the row that was tapped.
+        property string merchant: ""
 
         anchors.centerIn: Overlay.overlay
         width: 340
@@ -244,11 +284,21 @@ Item {
         title: qsTr("Change category")
         standardButtons: Dialog.Ok | Dialog.Cancel
 
-        onOpened: categoryInput.text = categoryDialog.currentCategory
+        onOpened: {
+            categoryInput.text = categoryDialog.currentCategory;
+            alwaysBox.checked = false;
+        }
         onAccepted: {
-            if (categoryInput.text.trim().length > 0) {
-                AppController.setTransactionCategory(categoryDialog.transactionId,
-                                                     categoryInput.text.trim());
+            const category = categoryInput.text.trim();
+            if (category.length === 0)
+                return;
+            if (alwaysBox.checked && categoryDialog.merchant.length > 0) {
+                // The rule covers this row too, so setting it individually as
+                // well would only mark it hand-set and exempt it from the very
+                // rule that was just asked for.
+                AppController.addCategoryRule(categoryDialog.merchant, category);
+            } else {
+                AppController.setTransactionCategory(categoryDialog.transactionId, category);
             }
         }
 
@@ -292,6 +342,53 @@ Item {
                     border.width: 1
                     border.color: categoryInput.activeFocus ? Theme.accent : Theme.border
                 }
+            }
+
+            CheckBox {
+                id: alwaysBox
+
+                Layout.fillWidth: true
+                visible: categoryDialog.merchant.length > 0
+                text: qsTr("Always use this for “%1”").arg(categoryDialog.merchant)
+
+                contentItem: Text {
+                    leftPadding: alwaysBox.indicator.width + 8
+                    text: alwaysBox.text
+                    color: Theme.text
+                    font.pixelSize: Theme.fontSizeSmall
+                    verticalAlignment: Text.AlignVCenter
+                    wrapMode: Text.WordWrap
+                }
+
+                indicator: Rectangle {
+                    implicitWidth: 16
+                    implicitHeight: 16
+                    x: 0
+                    y: (alwaysBox.height - height) / 2
+                    radius: 4
+                    color: alwaysBox.checked ? Theme.accent : Theme.surface
+                    border.width: 1
+                    border.color: alwaysBox.checked ? Theme.accent : Theme.borderStrong
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: alwaysBox.checked
+                        text: "✓"
+                        color: Theme.textOnAccent
+                        font.pixelSize: 11
+                        font.bold: true
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: alwaysBox.checked
+                text: qsTr("Writes a rule and applies it to matching transactions already "
+                           + "stored. Rows you have categorised by hand keep what you gave them.")
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
             }
         }
     }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Categoriser.h"
 #include "core/Transaction.h"
 
 #include <QDate>
@@ -68,6 +69,17 @@ public:
                                      const QString &currency,
                                      QString *errorMessage = nullptr) const;
 
+    /*!
+     * The currency most of \a institution's rows are in, or empty if it has none.
+     *
+     * Trading 212's cash endpoint reports an amount with no currency beside it,
+     * and a balance shown in the wrong one is worse than none at all.
+     */
+    QString dominantCurrency(const QString &institution) const;
+
+    //! How many rows sit in \a category, across all time rather than a filter.
+    int countInCategory(const QString &category) const;
+
     QStringList institutions() const;
     QStringList categories() const;
     //! Distinct currencies, most-used first, so the caller can default sensibly.
@@ -78,11 +90,29 @@ public:
     bool setCategory(const QString &transactionId, const QString &category,
                      QString *errorMessage = nullptr);
 
+    /*!
+     * Re-applies \a categoriser to every row whose category was not set by hand.
+     *
+     * Returns how many rows changed, or -1 on failure. A hand-set category is
+     * never touched: the user deciding one row outranks any rule, including a
+     * rule they wrote afterwards.
+     */
+    int recategorise(const Categoriser &categoriser, QString *errorMessage = nullptr);
+
     //! Leaves one row out of the totals, or puts it back.
     bool setExcluded(const QString &transactionId, bool excluded,
                      QString *errorMessage = nullptr);
 
     bool removeInstitution(const QString &institution, QString *errorMessage = nullptr);
+
+    /*!
+     * Deletes every stored transaction.
+     *
+     * Bank connections are untouched: forgetting what was synced and forgetting
+     * where to sync from are different intentions, and conflating them would
+     * make a cleanup into a reconnection.
+     */
+    bool clear(QString *errorMessage = nullptr);
 
 private:
     bool migrate(QString *errorMessage);

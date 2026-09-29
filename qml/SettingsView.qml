@@ -288,6 +288,54 @@ ScrollView {
                     }
                 }
 
+                /*
+                 * Only the investing account's uninvested cash. Trading 212's
+                 * public API covers that account alone -- the live response is
+                 * {free, total, ppl, result, invested, pieCash, blocked} -- so
+                 * the card's spending pot cannot be read. Said here rather than
+                 * left as a silent omission, because a figure labelled
+                 * "uninvested cash" that quietly excludes a second pot would
+                 * read as the whole picture.
+                 */
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: AppController.hasTrading212Cash
+                    spacing: Theme.spacing
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Main pot")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    Text {
+                        text: AppController.trading212CashText
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.DemiBold
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: AppController.hasTrading212Cash
+                    spacing: Theme.spacing
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Spending pot")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    Text {
+                        text: qsTr("not available through the API")
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+                }
+
                 Text {
                     Layout.fillWidth: true
                     text: qsTr("Trading 212 is a broker, not a bank, so it is reached through "
@@ -519,12 +567,176 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: qsTr("Merchant matching rules live in categories.json next to the " + "database. Edit that file and restart to change how purchases are " + "grouped; a category you set by hand on a row always wins.")
+                    text: qsTr("Tap a transaction's category to change it, or to write a rule "
+                               + "covering everything from that merchant. Rules live in "
+                               + "categories.json next to the database and are re-applied after "
+                               + "each sync; a category you set by hand on a row always wins.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap
                 }
             }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: resetColumn.implicitHeight + 2 * Theme.spacingLarge
+            radius: Theme.radius
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.border
+
+            ColumnLayout {
+                id: resetColumn
+
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLarge
+                spacing: Theme.spacing
+
+                Text {
+                    text: qsTr("Starting over")
+                    color: Theme.text
+                    font.pixelSize: Theme.fontSizeBody
+                    font.weight: Font.DemiBold
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Both of these ask first. Neither touches your bank connections "
+                               + "or your private key.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                }
+
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacing
+
+                    Button {
+                        id: resetRulesButton
+
+                        text: qsTr("Reset category rules")
+                        onClicked: resetRulesDialog.open()
+
+                        contentItem: Text {
+                            text: resetRulesButton.text
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSizeSmall
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            implicitHeight: 34
+                            implicitWidth: 170
+                            radius: Theme.radiusSmall
+                            color: resetRulesButton.hovered ? Theme.surfaceHover
+                                                            : Theme.surfaceRaised
+                            border.width: 1
+                            border.color: Theme.border
+                        }
+                    }
+
+                    Button {
+                        id: deleteDataButton
+
+                        text: qsTr("Delete all transactions")
+                        onClicked: deleteDataDialog.open()
+
+                        contentItem: Text {
+                            text: deleteDataButton.text
+                            color: Theme.negative
+                            font.pixelSize: Theme.fontSizeSmall
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            implicitHeight: 34
+                            implicitWidth: 180
+                            radius: Theme.radiusSmall
+                            color: deleteDataButton.hovered ? Qt.alpha(Theme.negative, 0.14)
+                                                            : Theme.surfaceRaised
+                            border.width: 1
+                            border.color: Theme.negative
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+     * Both of these throw something away, so both ask first. The destructive
+     * one names what cannot be recovered rather than asking "are you sure?",
+     * which tells nobody anything.
+     */
+    Dialog {
+        id: resetRulesDialog
+
+        anchors.centerIn: Overlay.overlay
+        width: 360
+        modal: true
+        title: qsTr("Reset category rules?")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onAccepted: AppController.resetCategoryRules()
+
+        background: Rectangle {
+            radius: Theme.radius
+            color: Theme.surfaceRaised
+            border.width: 1
+            border.color: Theme.borderStrong
+        }
+
+        header: Text {
+            padding: Theme.spacing
+            text: resetRulesDialog.title
+            color: Theme.text
+            font.pixelSize: Theme.fontSizeBody
+            font.weight: Font.DemiBold
+        }
+
+        contentItem: Text {
+            text: qsTr("Discards the rules you have added and restores the built-in ones, then "
+                       + "re-sorts your transactions. Categories you set by hand are kept.")
+            color: Theme.textMuted
+            font.pixelSize: Theme.fontSizeSmall
+            wrapMode: Text.WordWrap
+        }
+    }
+
+    Dialog {
+        id: deleteDataDialog
+
+        anchors.centerIn: Overlay.overlay
+        width: 360
+        modal: true
+        title: qsTr("Delete all transactions?")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onAccepted: AppController.deleteAllTransactions()
+
+        background: Rectangle {
+            radius: Theme.radius
+            color: Theme.surfaceRaised
+            border.width: 1
+            border.color: Theme.negative
+        }
+
+        header: Text {
+            padding: Theme.spacing
+            text: deleteDataDialog.title
+            color: Theme.negative
+            font.pixelSize: Theme.fontSizeBody
+            font.weight: Font.DemiBold
+        }
+
+        contentItem: Text {
+            text: qsTr("Empties the database. Syncing will bring back only what your banks "
+                       + "still serve — usually the last 90 days — so anything older, and "
+                       + "everything imported from a file, is gone for good. Bank connections, "
+                       + "rules and budgets are kept.")
+            color: Theme.textMuted
+            font.pixelSize: Theme.fontSizeSmall
+            wrapMode: Text.WordWrap
         }
     }
 

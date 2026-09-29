@@ -1,5 +1,7 @@
 #include "data/AccountModel.h"
 
+#include "core/Money.h"
+
 AccountModel::AccountModel(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -16,6 +18,28 @@ void AccountModel::setAccounts(const QList<Account> &accounts)
 void AccountModel::clear()
 {
     setAccounts({});
+}
+
+void AccountModel::setBalance(const QString &uid, const Account &balance)
+{
+    for (qsizetype i = 0; i < m_accounts.size(); ++i) {
+        if (m_accounts.at(i).uid != uid)
+            continue;
+
+        Account &account = m_accounts[i];
+        account.hasBalance = balance.hasBalance;
+        account.balanceMinor = balance.balanceMinor;
+        account.balanceCurrency = balance.balanceCurrency;
+        account.balanceName = balance.balanceName;
+        account.balanceType = balance.balanceType;
+        account.balanceDate = balance.balanceDate;
+
+        const QModelIndex changed = index(static_cast<int>(i), 0);
+        emit dataChanged(changed, changed,
+                         {HasBalanceRole, BalanceTextRole, BalanceMinorRole, BalanceNameRole});
+        emit countChanged();
+        return;
+    }
 }
 
 int AccountModel::rowCount(const QModelIndex &parent) const
@@ -48,6 +72,15 @@ QVariant AccountModel::data(const QModelIndex &index, int role) const
         return account.cashAccountType;
     case IsCardRole:
         return account.isCard();
+    case HasBalanceRole:
+        return account.hasBalance;
+    case BalanceTextRole:
+        return account.hasBalance ? Money::format(account.balanceMinor, account.balanceCurrency)
+                                  : QString();
+    case BalanceMinorRole:
+        return QVariant::fromValue(account.balanceMinor);
+    case BalanceNameRole:
+        return account.balanceName;
     default:
         return {};
     }
@@ -65,5 +98,9 @@ QHash<int, QByteArray> AccountModel::roleNames() const
         {ProductRole, "product"},
         {CashAccountTypeRole, "cashAccountType"},
         {IsCardRole, "isCard"},
+        {HasBalanceRole, "hasBalance"},
+        {BalanceTextRole, "balanceText"},
+        {BalanceMinorRole, "balanceMinor"},
+        {BalanceNameRole, "balanceName"},
     };
 }

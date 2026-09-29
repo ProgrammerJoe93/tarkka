@@ -340,6 +340,58 @@ A few decisions worth knowing about:
   credit card bill, or moving money from one account to another, appears once
   on each side; counting either leg would inflate both spending and income. The
   net card says how much was excluded.
+- **Account balances are shown as the banks report them.** Banks report several
+  per account and disagree about which they report at all, so there is no
+  single "the balance": the app prefers what you could spend right now
+  (interim available, then closing available) over what has merely cleared,
+  and shows the bank's own label beside the figure rather than presenting two
+  differently-meant numbers as comparable. A bank serving no balance shows
+  none — an account with nothing reported is not an account holding nothing.
+  The dashboard totals only the accounts in the currency on show and says how
+  many it left out.
+  Trading 212 is the exception: its public API covers the investing account
+  only, so the Settings box shows that account's uninvested cash — the main
+  pot — and says plainly that the card's spending pot cannot be read. The
+  spending pot is therefore *not* in the dashboard total; putting the main pot
+  there instead would pad it with money that is not spending money.
+- **Categories can carry a monthly budget**, set in **Trends** on the row that
+  shows what that category actually costs each month. The field's placeholder
+  is a suggestion drawn from that history — the median month, or the mean where
+  the median is nothing, so a quarterly bill is not proposed a budget of zero.
+  Deciding a number from a blank page is the part of budgeting that defeats
+  people, so the app offers one. A budgeted category's dashboard bar then
+  measures spending against its budget rather than against the largest
+  category, and turns red when it is passed. No budget and a budget of zero are
+  deliberately different things: the first is a category nobody has thought
+  about, the second a decision to spend nothing.
+- **Payments that repeat monthly are found and listed**, under *Paid every
+  month* in Trends — the part of a month already committed, and the part most
+  likely to have been forgotten. Detection is deliberately conservative: at
+  least three occurrences, every gap roughly a month, and amounts that stay
+  close together. A shop visited every week does not qualify, and neither does
+  one visited monthly for a different amount each time. The usual charge and
+  the latest are both kept, so a price that has crept up shows as such instead
+  of being averaged away.
+- **Category rules can be written from a transaction.** Tapping a row's
+  category offers *Always use this for …*, which writes a rule and applies it
+  to what is already stored — no editing JSON and restarting, which was never
+  possible on a phone, and the phone is where a miscategorised row gets
+  noticed. Rows categorised by hand keep what they were given: an explicit
+  decision outranks a rule, including one written afterwards. A count of
+  uncategorised rows sits in the transaction filters as a way in to fixing them.
+
+  Writing a rule for a merchant that already has one replaces it rather than
+  leaving two that disagree, and `categories.json` stores the rules as an
+  ordered array because order *is* precedence — the older object-keyed form,
+  still read, had its keys handed back sorted and so quietly rearranged them
+  on every load. **Settings → Starting over** resets the rules to the built-in
+  set, or empties the database; both ask first and neither touches your bank
+  connections or key.
+
+  Rules are re-applied when a sync finishes, so a rule written today still
+  claims rows that arrived before it. Two kinds of category survive that: one
+  you set by hand, and one the provider chose — a Trading 212 deposit is a
+  transfer because of its action type, and no merchant rule knows better.
 - **Money coming in is grouped the same way money going out is**, in *Where the
   money came from* beneath the spending breakdown. Both are filled from one pass
   over the same rows, so the two halves cannot disagree about which rows count:
@@ -379,6 +431,7 @@ A few decisions worth knowing about:
 |---|---|
 | Transactions | `~/.local/share/tarkka/Tarkka/transactions.sqlite` |
 | Category rules | `~/.local/share/tarkka/Tarkka/categories.json` |
+| Monthly budgets | `~/.local/share/tarkka/Tarkka/budgets.json` |
 | Application ID, key path, sessions | `~/.config/tarkka/Tarkka.conf` |
 | Trading 212 key and secret | `~/.local/share/tarkka/Tarkka/trading212.key` (owner-only) |
 

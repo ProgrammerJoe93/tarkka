@@ -45,6 +45,23 @@ public:
 
     //! Requests an export for the range, then polls for it and parses it.
     void fetch(const QDate &from, const QDate &to);
+    /*!
+     * Asks what uninvested cash the account holds.
+     *
+     * Independent of the export flow and silent on failure: a balance is a
+     * nicety beside the transactions, and losing it must not make a sync look
+     * broken.
+     */
+    void fetchCash();
+
+signals:
+    /*!
+     * The uninvested cash Trading 212 reports, in minor units.
+     *
+     * Only the main pot: the public API exposes the investing account alone,
+     * so the card's spending pot is not among the figures it returns.
+     */
+    void cashReported(qint64 freeMinor);
 
 private:
     void requestExport(const QDate &from, const QDate &to);

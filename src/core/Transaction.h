@@ -36,6 +36,15 @@ struct Transaction
     QString currency;
 
     QString category;
+    /*!
+     * Whether the provider chose the category rather than the rules.
+     *
+     * Some providers know things no merchant rule can: a Trading 212 deposit is
+     * a transfer because of the action type, not because of who it was paid to.
+     * Re-running the rules over such a row would replace a right answer with a
+     * guess, so it is marked and left alone.
+     */
+    bool categoryFromProvider = false;
     //! "BOOK" for booked, "PDNG" for pending, or whatever the bank reported.
     QString status;
 

@@ -1,9 +1,11 @@
 #pragma once
 
 #include "auth/Settings.h"
+#include "core/Budgets.h"
 #include "core/Categoriser.h"
 #include "data/AccountModel.h"
 #include "data/SummaryModel.h"
+#include "data/RecurringModel.h"
 #include "data/TrendsModel.h"
 #include "data/TransactionFilterModel.h"
 #include "data/TransactionModel.h"
@@ -34,6 +36,7 @@ class AppController : public QObject
     Q_PROPERTY(TransactionFilterModel *transactions READ transactions CONSTANT)
     Q_PROPERTY(SummaryModel *summary READ summary CONSTANT)
     Q_PROPERTY(TrendsModel *trends READ trends CONSTANT)
+    Q_PROPERTY(RecurringModel *recurring READ recurring CONSTANT)
     Q_PROPERTY(AccountModel *accounts READ accounts CONSTANT)
 
     Q_PROPERTY(bool busy READ isBusy NOTIFY busyChanged)
@@ -43,6 +46,13 @@ class AppController : public QObject
     Q_PROPERTY(QVariantList banks READ banks NOTIFY banksChanged)
     Q_PROPERTY(QStringList institutions READ institutions NOTIFY dataChanged)
     Q_PROPERTY(QStringList categories READ categories NOTIFY dataChanged)
+    /*!
+     * Rows no rule claimed, across all time.
+     *
+     * Surfaced as a count so the rule set can be kept healthy: uncategorised
+     * rows are invisible in a total and quietly make every category wrong.
+     */
+    Q_PROPERTY(int uncategorisedCount READ uncategorisedCount NOTIFY dataChanged)
     Q_PROPERTY(QStringList currencies READ currencies NOTIFY dataChanged)
 
     Q_PROPERTY(QDate dateFrom READ dateFrom WRITE setDateFrom NOTIFY filterChanged)
@@ -56,6 +66,19 @@ class AppController : public QObject
                    NOTIFY filterChanged)
     Q_PROPERTY(QString rangeLabel READ rangeLabel NOTIFY filterChanged)
 
+    /*!
+     * What the linked accounts currently hold, in the displayed currency.
+     *
+     * Only accounts reporting that currency are added up, and
+     * \c balancesInOtherCurrencies counts the rest, for the same reason the
+     * spending totals refuse to mix: a number made of euros and pounds is not
+     * money. An account whose bank serves no balance is counted in neither.
+     */
+    Q_PROPERTY(QString totalBalanceText READ totalBalanceText NOTIFY accountsChanged)
+    Q_PROPERTY(bool hasBalances READ hasBalances NOTIFY accountsChanged)
+    Q_PROPERTY(int balancesInOtherCurrencies READ balancesInOtherCurrencies
+                   NOTIFY accountsChanged)
+
     Q_PROPERTY(bool configured READ isConfigured NOTIFY settingsChanged)
     Q_PROPERTY(QString applicationId READ applicationId NOTIFY settingsChanged)
     Q_PROPERTY(QString privateKeyPath READ privateKeyPath NOTIFY settingsChanged)
@@ -63,6 +86,15 @@ class AppController : public QObject
     Q_PROPERTY(QString country READ country NOTIFY settingsChanged)
     Q_PROPERTY(QString redirectUrl READ redirectUrl NOTIFY settingsChanged)
     Q_PROPERTY(bool trading212Configured READ isTrading212Configured NOTIFY settingsChanged)
+    /*!
+     * Trading 212's uninvested cash, as last reported.
+     *
+     * The main pot only. Trading 212's public API covers the investing account
+     * alone, so the card's spending pot is not available to read; it is
+     * deliberately absent rather than approximated from something else.
+     */
+    Q_PROPERTY(QString trading212CashText READ trading212CashText NOTIFY trading212CashChanged)
+    Q_PROPERTY(bool hasTrading212Cash READ hasTrading212Cash NOTIFY trading212CashChanged)
     Q_PROPERTY(QString appearance READ appearance WRITE setAppearance NOTIFY appearanceChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
 
@@ -73,6 +105,7 @@ public:
     TransactionFilterModel *transactions() { return &m_filterModel; }
     SummaryModel *summary() { return &m_summaryModel; }
     TrendsModel *trends() { return &m_trendsModel; }
+    RecurringModel *recurring() { return &m_recurringModel; }
     //! How many months the comparison spans, the shown month included.
     static constexpr int trendMonths = 6;
     AccountModel *accounts();
@@ -84,6 +117,9 @@ public:
     QVariantList banks() const { return m_banks; }
     QStringList institutions() const;
     QStringList categories() const;
+    int uncategorisedCount() const;
+    //! The category name rows fall into when no rule matches.
+    Q_INVOKABLE QString uncategorisedName() const { return Categoriser::uncategorised(); }
     QStringList currencies() const;
 
     QDate dateFrom() const { return m_filter.from; }
@@ -99,6 +135,9 @@ public:
     QString currencyFilter() const { return m_filter.currency; }
     void setCurrencyFilter(const QString &currency);
     QString rangeLabel() const;
+    QString totalBalanceText() const;
+    bool hasBalances() const;
+    int balancesInOtherCurrencies() const;
 
     bool isConfigured() const { return m_settings.isConfigured(); }
     QString applicationId() const { return m_settings.applicationId(); }
@@ -107,6 +146,8 @@ public:
     QString country() const { return m_settings.country(); }
     QString redirectUrl() const;
     bool isTrading212Configured() const;
+    QString trading212CashText() const;
+    bool hasTrading212Cash() const { return m_trading212Cash >= 0; }
     QString appearance() const { return m_settings.appearance(); }
     /*!
      * Chooses the palette: "system", "light" or "dark".
@@ -159,6 +200,40 @@ public:
      * row you cannot see is a row you cannot put back.
      */
     Q_INVOKABLE void setTransactionExcluded(const QString &transactionId, bool excluded);
+    /*!
+     * Sets the monthly target for \a category from what the user typed.
+     *
+     * An empty \a amountText clears the target, which is not the same as
+     * budgeting zero: the first leaves the category unbudgeted, the second is a
+     * decision to spend nothing on it.
+     */
+    Q_INVOKABLE void setBudget(const QString &category, const QString &amountText);
+    /*!
+     * Adds a rule putting everything matching \a merchant into \a category,
+     * and applies it to the rows already stored.
+     *
+     * The rule file was previously editable only by hand, with a restart to
+     * take effect -- which on a phone is no route at all, and the phone is
+     * where a miscategorised row gets noticed. \a merchant is matched as plain
+     * text rather than a pattern, because it comes from a row the user tapped
+     * rather than from someone writing a regular expression.
+     */
+    Q_INVOKABLE void addCategoryRule(const QString &merchant, const QString &category);
+    /*!
+     * Throws away the rules and restores the built-in ones.
+     *
+     * Then re-applies them, so the effect is visible rather than waiting for
+     * the next sync. Categories set by hand and by providers survive, as they
+     * do any other re-application.
+     */
+    Q_INVOKABLE void resetCategoryRules();
+    /*!
+     * Deletes every stored transaction, leaving bank connections in place.
+     *
+     * Irreversible and not undone by syncing: a bank serves only the period its
+     * consent covers, so anything older than that is gone for good.
+     */
+    Q_INVOKABLE void deleteAllTransactions();
     Q_INVOKABLE void disconnectAll();
     /*!
      * Writes this device's bank connections to \a fileUrl.
@@ -193,6 +268,8 @@ signals:
     void dataChanged();
     void filterChanged();
     void settingsChanged();
+    void accountsChanged();
+    void trading212CashChanged();
     void appearanceChanged();
     void languageChanged();
 
@@ -214,6 +291,7 @@ private:
 
     Settings m_settings;
     Categoriser m_categoriser;
+    Budgets m_budgets;
     TransactionStore m_store;
     TransactionStore::Filter m_filter;
 
@@ -221,6 +299,7 @@ private:
     TransactionFilterModel m_filterModel;
     SummaryModel m_summaryModel;
     TrendsModel m_trendsModel;
+    RecurringModel m_recurringModel;
 
     EnableBankingProvider *m_bank = nullptr;
     CsvProvider *m_csv = nullptr;
@@ -231,4 +310,6 @@ private:
     bool m_statusIsError = false;
     bool m_busy = false;
     int m_activeTasks = 0;
+    //! Uninvested cash in minor units; negative until a figure arrives.
+    qint64 m_trading212Cash = -1;
 };

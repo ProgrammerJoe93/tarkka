@@ -4,6 +4,10 @@
 <context>
     <name>AppController</name>
     <message>
+        <source>%1 is not an amount this can budget.</source>
+        <translation>%1 ei ole summa, jolle voi asettaa budjetin.</translation>
+    </message>
+    <message>
         <source>Add your Enable Banking or Trading 212 credentials in Settings first, or import a statement file instead.</source>
         <translation>Lisää ensin Enable Banking- tai Trading 212 -tunnuksesi asetuksiin, tai tuo tiliote tiedostosta.</translation>
     </message>
@@ -32,6 +36,28 @@
             <numerusform>Tuotiin %n pankkiyhteys. Osoita asetuksissa vastaavaan yksityiseen avaimeen ja synkronoi.</numerusform>
             <numerusform>Tuotiin %n pankkiyhteyttä. Osoita asetuksissa vastaavaan yksityiseen avaimeen ja synkronoi.</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>A rule needs both a merchant and a category.</source>
+        <translation>Sääntö tarvitsee sekä kaupan että kategorian.</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n transaction(s) moved to %1.</source>
+        <translation>
+            <numerusform>%n tapahtuma siirrettiin kategoriaan %1.</numerusform>
+            <numerusform>%n tapahtumaa siirrettiin kategoriaan %1.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Category rules reset. %n transaction(s) moved.</source>
+        <translation>
+            <numerusform>Kategoriasäännöt palautettiin. %n tapahtuma siirtyi.</numerusform>
+            <numerusform>Kategoriasäännöt palautettiin. %n tapahtumaa siirtyi.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>All stored transactions were deleted. Bank connections were kept.</source>
+        <translation>Kaikki tallennetut tapahtumat poistettiin. Pankkiyhteydet säilytettiin.</translation>
     </message>
     <message>
         <source>Settings saved.</source>
@@ -77,6 +103,10 @@
             <numerusform>%n ostos</numerusform>
             <numerusform>%n ostosta</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>of %1</source>
+        <translation>/ %1</translation>
     </message>
 </context>
 <context>
@@ -265,6 +295,21 @@
         <translation>SAATU</translation>
     </message>
     <message>
+        <source>IN ACCOUNTS</source>
+        <translation>TILEILLÄ</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n account(s) in other currencies are not included</source>
+        <translation>
+            <numerusform>%n tiliä muussa valuutassa ei ole mukana</numerusform>
+            <numerusform>%n tiliä muissa valuutoissa ei ole mukana</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>As your banks last reported</source>
+        <translation>Pankkien viimeksi ilmoittama</translation>
+    </message>
+    <message>
         <source>NET</source>
         <translation>NETTO</translation>
     </message>
@@ -392,6 +437,10 @@
             <numerusform>Haetaan tapahtumia %n tililtä…</numerusform>
             <numerusform>Haetaan tapahtumia %n tililtä…</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>%1: this bank will not serve transactions from that far back. Reconnect it to refresh the consent.</source>
+        <translation>%1: tämä pankki ei anna tapahtumia noin kaukaa. Yhdistä se uudelleen, niin suostumus päivittyy.</translation>
     </message>
     <message>
         <source>%1: %2</source>
@@ -559,6 +608,18 @@
         <translation>Yhdistetty</translation>
     </message>
     <message>
+        <source>Main pot</source>
+        <translation>Pääpotti</translation>
+    </message>
+    <message>
+        <source>Spending pot</source>
+        <translation>Käyttöpotti</translation>
+    </message>
+    <message>
+        <source>not available through the API</source>
+        <translation>ei saatavilla rajapinnan kautta</translation>
+    </message>
+    <message>
         <source>Trading 212 is a broker, not a bank, so it is reached through its own API rather than open banking. Generate a key pair in the app under Settings → API with history access; both halves are needed. They are written to an owner-only file, never into the settings.</source>
         <translation>Trading 212 on välittäjä eikä pankki, joten siihen otetaan yhteys sen omalla rajapinnalla avoimen pankkiyhteyden sijaan. Luo avainpari sovelluksen kohdassa Settings → API historiaoikeuksilla; molempia puoliskoja tarvitaan. Ne kirjoitetaan vain omistajan luettavissa olevaan tiedostoon, ei koskaan asetuksiin.</translation>
     </message>
@@ -611,8 +672,40 @@
         <translation>Kategoriat</translation>
     </message>
     <message>
-        <source>Merchant matching rules live in categories.json next to the database. Edit that file and restart to change how purchases are grouped; a category you set by hand on a row always wins.</source>
-        <translation>Kauppojen tunnistussäännöt ovat categories.json-tiedostossa tietokannan vieressä. Muokkaa tiedostoa ja käynnistä sovellus uudelleen muuttaaksesi ryhmittelyä; rivillä käsin asettamasi kategoria voittaa aina.</translation>
+        <source>Tap a transaction&apos;s category to change it, or to write a rule covering everything from that merchant. Rules live in categories.json next to the database and are re-applied after each sync; a category you set by hand on a row always wins.</source>
+        <translation>Muuta tapahtuman kategoriaa napauttamalla sitä, tai kirjoita sääntö, joka kattaa kaiken kyseiseltä kauppiaalta. Säännöt ovat categories.json-tiedostossa tietokannan vieressä ja ne sovelletaan uudelleen jokaisen synkronoinnin jälkeen; rivillä käsin asettamasi kategoria voittaa aina.</translation>
+    </message>
+    <message>
+        <source>Starting over</source>
+        <translation>Aloita alusta</translation>
+    </message>
+    <message>
+        <source>Both of these ask first. Neither touches your bank connections or your private key.</source>
+        <translation>Molemmat kysyvät ensin. Kumpikaan ei koske pankkiyhteyksiin tai yksityiseen avaimeesi.</translation>
+    </message>
+    <message>
+        <source>Reset category rules</source>
+        <translation>Palauta kategoriasäännöt</translation>
+    </message>
+    <message>
+        <source>Delete all transactions</source>
+        <translation>Poista kaikki tapahtumat</translation>
+    </message>
+    <message>
+        <source>Reset category rules?</source>
+        <translation>Palautetaanko kategoriasäännöt?</translation>
+    </message>
+    <message>
+        <source>Discards the rules you have added and restores the built-in ones, then re-sorts your transactions. Categories you set by hand are kept.</source>
+        <translation>Hylkää lisäämäsi säännöt, palauttaa sisäänrakennetut ja lajittelee tapahtumat uudelleen. Käsin asettamasi kategoriat säilyvät.</translation>
+    </message>
+    <message>
+        <source>Delete all transactions?</source>
+        <translation>Poistetaanko kaikki tapahtumat?</translation>
+    </message>
+    <message>
+        <source>Empties the database. Syncing will bring back only what your banks still serve — usually the last 90 days — so anything older, and everything imported from a file, is gone for good. Bank connections, rules and budgets are kept.</source>
+        <translation>Tyhjentää tietokannan. Synkronointi tuo takaisin vain sen, mitä pankkisi vielä tarjoavat — yleensä viimeiset 90 päivää — joten sitä vanhemmat ja kaikki tiedostosta tuodut menetetään lopullisesti. Pankkiyhteydet, säännöt ja budjetit säilyvät.</translation>
     </message>
     <message>
         <source>Choose your private key</source>
@@ -748,6 +841,13 @@
         <source>Purchases only</source>
         <translation>Vain ostokset</translation>
     </message>
+    <message numerus="yes">
+        <source>%n uncategorised</source>
+        <translation>
+            <numerusform>%n luokittelematon</numerusform>
+            <numerusform>%n luokittelematonta</numerusform>
+        </translation>
+    </message>
     <message>
         <source>No matching purchases</source>
         <translation>Ei osumia</translation>
@@ -768,6 +868,14 @@
         <source>A category you set by hand is kept when this row is synced again.</source>
         <translation>Käsin asettamasi kategoria säilyy, kun tämä rivi synkronoidaan uudelleen.</translation>
     </message>
+    <message>
+        <source>Always use this for “%1”</source>
+        <translation>Käytä tätä aina kohteelle ”%1”</translation>
+    </message>
+    <message>
+        <source>Writes a rule and applies it to matching transactions already stored. Rows you have categorised by hand keep what you gave them.</source>
+        <translation>Kirjoittaa säännön ja soveltaa sitä jo tallennettuihin tapahtumiin. Käsin luokittelemasi rivit säilyttävät antamasi kategorian.</translation>
+    </message>
 </context>
 <context>
     <name>TrendsView</name>
@@ -782,6 +890,33 @@
     <message>
         <source>By category</source>
         <translation>Kategorioittain</translation>
+    </message>
+    <message>
+        <source>Monthly budget for %1</source>
+        <translation>Kuukausibudjetti kategorialle %1</translation>
+    </message>
+    <message>
+        <source>Leave empty for no budget. Tab away or press Enter to save.</source>
+        <translation>Jätä tyhjäksi, jos budjettia ei ole. Tallennus tapahtuu sarkaimella tai Enterillä.</translation>
+    </message>
+    <message>
+        <source>Paid every month</source>
+        <translation>Kuukausittain maksettavat</translation>
+    </message>
+    <message>
+        <source>Charges that have repeated on a monthly rhythm. This is the part of a month that is already committed.</source>
+        <translation>Veloitukset, jotka ovat toistuneet kuukausittain. Tämä osa kuukaudesta on jo sidottu.</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n time(s), last on %1</source>
+        <translation>
+            <numerusform>%n kerta, viimeksi %1</numerusform>
+            <numerusform>%n kertaa, viimeksi %1</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>now %1</source>
+        <translation>nyt %1</translation>
     </message>
     <message>
         <source>Nothing to compare yet</source>

@@ -42,11 +42,15 @@ endif()
 
 set(TARKKA_SOURCES
     src/core/Transaction.cpp
+    src/core/Balance.cpp
+    src/core/Budgets.cpp
     src/core/Categoriser.cpp
+    src/core/Recurring.cpp
     src/data/TransactionStore.cpp
     src/data/TransactionModel.cpp
     src/data/TransactionFilterModel.cpp
     src/data/CategoryTotalsModel.cpp
+    src/data/RecurringModel.cpp
     src/data/SummaryModel.cpp
     src/data/TrendsModel.cpp
     src/data/AccountModel.cpp
@@ -67,11 +71,15 @@ set(TARKKA_SOURCES
 set(TARKKA_HEADERS
     src/core/Money.h
     src/core/Transaction.h
+    src/core/Balance.h
+    src/core/Budgets.h
     src/core/Categoriser.h
+    src/core/Recurring.h
     src/data/TransactionStore.h
     src/data/TransactionModel.h
     src/data/TransactionFilterModel.h
     src/data/CategoryTotalsModel.h
+    src/data/RecurringModel.h
     src/data/SummaryModel.h
     src/data/TrendsModel.h
     src/data/AccountModel.h

@@ -1,5 +1,9 @@
 #include "providers/EnableBankingProvider.h"
 
+#include "core/Balance.h"
+#include "core/Money.h"
+#include "providers/Provider.h"
+
 #include "auth/RedirectListener.h"
 #include "core/Money.h"
 #include "net/HttpClient.h"
@@ -14,6 +18,21 @@
 #include <QUuid>
 
 namespace {
+
+/*!
+ * Something to call an account by in a message.
+ *
+ * Banks do not always name an account, and a failure reported as ": …" tells
+ * the user nothing about which of their accounts it was.
+ */
+QString accountLabel(const AccountModel::Account &account)
+{
+    if (!account.name.isEmpty())
+        return account.name;
+    if (!account.identifier.isEmpty())
+        return account.identifier;
+    return account.institution;
+}
 
 constexpr auto kIssuer = "enablebanking.com";
 constexpr auto kAudience = "api.enablebanking.com";
@@ -292,11 +311,67 @@ void EnableBankingProvider::loadSession(const QString &sessionId, bool announceC
                     m_accounts.setAccounts(accounts);
                     emit accountsChanged();
 
+                    // One request per account, after the accounts themselves
+                    // are on screen, so the list appears immediately and the
+                    // balances fill in as they arrive.
+                    for (const AccountModel::Account &account : accounts)
+                        fetchBalance(account);
+
                     if (announceConnection) {
                         emit connected(institution.isEmpty() ? m_pendingInstitution : institution);
                         emit progress(tr("Connected %1").arg(
                             institution.isEmpty() ? m_pendingInstitution : institution));
                     }
+                });
+}
+
+void EnableBankingProvider::fetchBalance(const AccountModel::Account &account)
+{
+    const QString uid = account.uid;
+    m_http->get(QStringLiteral("/accounts/%1/balances").arg(uid), {},
+                [this, uid](const HttpClient::Response &response) {
+                    // Silent on failure: a bank that does not serve balances is
+                    // not a problem to report on every launch, and the account
+                    // simply shows no figure.
+                    if (!response.ok)
+                        return;
+
+                    QList<Balance::Reported> reported;
+                    const QJsonArray balances =
+                        response.body.object().value(QStringLiteral("balances")).toArray();
+                    for (const QJsonValue &value : balances) {
+                        const QJsonObject object = value.toObject();
+                        const QJsonObject amount =
+                            object.value(QStringLiteral("balance_amount")).toObject();
+
+                        Balance::Reported entry;
+                        entry.name = object.value(QStringLiteral("name")).toString();
+                        entry.type = object.value(QStringLiteral("balance_type")).toString();
+                        entry.currency = amount.value(QStringLiteral("currency")).toString();
+                        // A string, not a number: the API sends decimal amounts
+                        // as text precisely so they survive the trip intact.
+                        entry.amountMinor = Money::fromDecimalString(
+                            amount.value(QStringLiteral("amount")).toString());
+                        entry.referenceDate = QDate::fromString(
+                            object.value(QStringLiteral("reference_date")).toString(),
+                            Qt::ISODate);
+                        if (entry.isValid())
+                            reported.append(entry);
+                    }
+
+                    const Balance::Reported chosen = Balance::preferred(reported);
+                    if (!chosen.isValid())
+                        return;
+
+                    AccountModel::Account update;
+                    update.hasBalance = true;
+                    update.balanceMinor = chosen.amountMinor;
+                    update.balanceCurrency = chosen.currency;
+                    update.balanceName = chosen.name;
+                    update.balanceType = chosen.type;
+                    update.balanceDate = chosen.referenceDate;
+                    m_accounts.setBalance(uid, update);
+                    emit accountsChanged();
                 });
 }
 
@@ -317,14 +392,18 @@ void EnableBankingProvider::fetch(const QDate &from, const QDate &to)
     emit progress(tr("Fetching transactions from %n account(s)…", nullptr,
                      static_cast<int>(accounts.size())));
 
-    for (const AccountModel::Account &account : accounts)
+    for (const AccountModel::Account &account : accounts) {
         fetchAccountPage(account, from, to, QString());
+        // Balances move whenever transactions do, so a sync refreshes both.
+        fetchBalance(account);
+    }
 }
 
 void EnableBankingProvider::fetchAccountPage(const AccountModel::Account &account,
                                              const QDate &from,
                                              const QDate &to,
-                                             const QString &continuationKey)
+                                             const QString &continuationKey,
+                                             bool narrowed)
 {
     QUrlQuery query;
     if (from.isValid())
@@ -336,10 +415,29 @@ void EnableBankingProvider::fetchAccountPage(const AccountModel::Account &accoun
 
     m_http->get(QStringLiteral("/accounts/%1/transactions").arg(account.uid),
                 query,
-                [this, account, from, to](const HttpClient::Response &response) {
+                [this, account, from, to, narrowed](const HttpClient::Response &response) {
                     if (!response.ok) {
+                        constexpr int unprocessable = 422;
+                        if (response.httpStatus == unprocessable && !narrowed) {
+                            const SyncWindow retry = SyncWindow::narrowed(
+                                SyncWindow{from, to}, QDate::currentDate());
+                            if (retry.isValid()) {
+                                fetchAccountPage(account, retry.from, retry.to, QString(), true);
+                                return;
+                            }
+                            // Nothing narrower to ask for: the whole period
+                            // predates what this bank will serve. Said plainly,
+                            // because "wrong transactions period requested"
+                            // gives the user nothing to act on.
+                            m_fetchErrors.append(
+                                tr("%1: this bank will not serve transactions from that far "
+                                   "back. Reconnect it to refresh the consent.")
+                                    .arg(accountLabel(account)));
+                            accountFetchFinished();
+                            return;
+                        }
                         m_fetchErrors.append(
-                            tr("%1: %2").arg(account.name, response.errorMessage));
+                            tr("%1: %2").arg(accountLabel(account), response.errorMessage));
                         accountFetchFinished();
                         return;
                     }
@@ -356,7 +454,7 @@ void EnableBankingProvider::fetchAccountPage(const AccountModel::Account &accoun
                     const QString nextKey =
                         payload.value(QStringLiteral("continuation_key")).toString();
                     if (!nextKey.isEmpty()) {
-                        fetchAccountPage(account, from, to, nextKey);
+                        fetchAccountPage(account, from, to, nextKey, narrowed);
                         return;
                     }
 

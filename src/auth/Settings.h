@@ -101,4 +101,6 @@ public:
     //! Self-signed TLS pair the redirect listener serves; created on first use.
     static QString loopbackCertificatePath();
     static QString categoryRulesPath();
+    //! Monthly spending targets, beside the rules: both are intent, not record.
+    static QString budgetsPath();
 };

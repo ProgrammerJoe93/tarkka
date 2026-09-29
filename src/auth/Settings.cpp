@@ -319,6 +319,11 @@ QString Settings::loopbackCertificatePath()
     return dataDir() + QStringLiteral("/redirect-localhost.pem");
 }
 
+QString Settings::budgetsPath()
+{
+    return dataDir() + QStringLiteral("/budgets.json");
+}
+
 QString Settings::categoryRulesPath()
 {
     return dataDir() + QStringLiteral("/categories.json");

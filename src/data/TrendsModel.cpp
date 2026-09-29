@@ -163,9 +163,60 @@ QVariant TrendsModel::data(const QModelIndex &index, int role) const
         return changeText(latest, previous, havePrevious, m_currency);
     case ChangeDirectionRole:
         return direction(latest, previous, havePrevious);
+    case TargetMinorRole:
+        return QVariant::fromValue(m_targets.value(row.category, -1));
+    case TargetTextRole: {
+        const qint64 target = m_targets.value(row.category, -1);
+        return target < 0 ? QString() : Money::format(target, m_currency);
+    }
+    case SuggestedMinorRole:
+        return QVariant::fromValue(suggestionFor(row));
+    case SuggestedTextRole: {
+        const qint64 suggestion = suggestionFor(row);
+        return suggestion < 0 ? QString() : Money::format(suggestion, m_currency);
+    }
     default:
         return {};
     }
+}
+
+qint64 TrendsModel::suggestionFor(const Row &row) const
+{
+    if (row.spentMinor.isEmpty())
+        return -1;
+
+    QList<qint64> sorted = row.spentMinor;
+    std::sort(sorted.begin(), sorted.end());
+    const qsizetype middle = sorted.size() / 2;
+    const qint64 median = sorted.size() % 2 == 1
+                              ? sorted.at(middle)
+                              : (sorted.at(middle - 1) + sorted.at(middle)) / 2;
+    if (median > 0)
+        return median;
+
+    /*
+     * The median is the better answer for a category bought every month: one
+     * unusual month cannot drag the target with it. But it is zero for anything
+     * bought less often than half the window -- a quarterly insurance bill
+     * medians to nothing -- and suggesting a target of zero is useless, so
+     * those fall back to the mean, which spreads the cost across the months.
+     */
+    qint64 total = 0;
+    for (const qint64 amount : row.spentMinor)
+        total += amount;
+    return total > 0 ? total / row.spentMinor.size() : -1;
+}
+
+void TrendsModel::setTargets(const QHash<QString, qint64> &targets)
+{
+    if (m_targets == targets)
+        return;
+    m_targets = targets;
+    if (!m_rows.isEmpty()) {
+        emit dataChanged(index(0, 0), index(static_cast<int>(m_rows.size()) - 1),
+                         {TargetMinorRole, TargetTextRole});
+    }
+    emit countChanged();
 }
 
 QHash<int, QByteArray> TrendsModel::roleNames() const
@@ -176,6 +227,10 @@ QHash<int, QByteArray> TrendsModel::roleNames() const
         {LatestTextRole, "latestText"},
         {ChangeTextRole, "changeText"},
         {ChangeDirectionRole, "changeDirection"},
+        {TargetMinorRole, "targetMinor"},
+        {TargetTextRole, "targetText"},
+        {SuggestedMinorRole, "suggestedMinor"},
+        {SuggestedTextRole, "suggestedText"},
     };
 }
 

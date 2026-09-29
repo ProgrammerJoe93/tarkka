@@ -30,6 +30,17 @@ public:
         AmountTextRole,
         ShareRole,
         TransactionCountRole,
+        /*
+         * Always "no budget". They exist because one CategoryBars delegate
+         * draws both this list and the budgeted spending list, and a delegate
+         * declaring required properties gets nothing a model does not offer.
+         * Money coming in has no target by nature -- a budget is a limit you
+         * set yourself, and income is not yours to decide.
+         */
+        TargetMinorRole,
+        TargetTextRole,
+        TargetShareRole,
+        OverTargetRole,
     };
     Q_ENUM(Role)
 

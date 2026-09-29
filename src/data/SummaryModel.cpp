@@ -195,9 +195,41 @@ QVariant SummaryModel::data(const QModelIndex &index, int role) const
                    : 0.0;
     case TransactionCountRole:
         return bucket.transactionCount;
+    case TargetMinorRole:
+        return QVariant::fromValue(m_targets.value(bucket.category, -1));
+    case TargetTextRole: {
+        const qint64 target = m_targets.value(bucket.category, -1);
+        return target < 0 ? QString() : Money::format(target, m_currency);
+    }
+    case TargetShareRole: {
+        const qint64 target = m_targets.value(bucket.category, -1);
+        // A target of zero is a decision to spend nothing, so any spending at
+        // all against it is fully over rather than a division by zero.
+        if (target < 0)
+            return 0.0;
+        if (target == 0)
+            return bucket.spentMinor > 0 ? 1.0 : 0.0;
+        return static_cast<double>(bucket.spentMinor) / static_cast<double>(target);
+    }
+    case OverTargetRole: {
+        const qint64 target = m_targets.value(bucket.category, -1);
+        return target >= 0 && bucket.spentMinor > target;
+    }
     default:
         return {};
     }
+}
+
+void SummaryModel::setTargets(const QHash<QString, qint64> &targets)
+{
+    if (m_targets == targets)
+        return;
+    m_targets = targets;
+    if (!m_buckets.isEmpty()) {
+        emit dataChanged(index(0, 0), index(static_cast<int>(m_buckets.size()) - 1),
+                         {TargetMinorRole, TargetTextRole, TargetShareRole, OverTargetRole});
+    }
+    emit countChanged();
 }
 
 QHash<int, QByteArray> SummaryModel::roleNames() const
@@ -208,6 +240,10 @@ QHash<int, QByteArray> SummaryModel::roleNames() const
         {AmountTextRole, "amountText"},
         {ShareRole, "share"},
         {TransactionCountRole, "transactionCount"},
+        {TargetMinorRole, "targetMinor"},
+        {TargetTextRole, "targetText"},
+        {TargetShareRole, "targetShare"},
+        {OverTargetRole, "overTarget"},
     };
 }
 

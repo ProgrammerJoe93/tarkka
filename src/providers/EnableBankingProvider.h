@@ -85,10 +85,27 @@ signals:
 private:
     void createSession(const QString &code);
     void loadSession(const QString &sessionId, bool announceConnection);
+    /*!
+     * Fetches one page for one account.
+     *
+     * \a narrowed marks the single retry made when a bank refuses the period,
+     * so a bank that refuses the narrower window too is reported rather than
+     * asked again forever.
+     */
+    /*!
+     * Asks the bank what an account currently holds.
+     *
+     * Best effort and independent of everything else: not every bank serves
+     * balances, and a failure here must not make the account look broken or
+     * stop its transactions syncing.
+     */
+    void fetchBalance(const AccountModel::Account &account);
+
     void fetchAccountPage(const AccountModel::Account &account,
                           const QDate &from,
                           const QDate &to,
-                          const QString &continuationKey);
+                          const QString &continuationKey,
+                          bool narrowed = false);
     void accountFetchFinished();
 
     Settings m_settings;

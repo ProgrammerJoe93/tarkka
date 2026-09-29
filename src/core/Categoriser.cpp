@@ -123,20 +123,46 @@ bool Categoriser::loadFromFile(const QString &path, QString *errorMessage)
 
     QList<Rule> loaded;
     const QJsonObject root = document.object();
-    for (auto it = root.constBegin(); it != root.constEnd(); ++it) {
-        const QJsonArray patterns = it.value().toArray();
-        for (const QJsonValue &pattern : patterns) {
-            const QString expression = pattern.toString();
-            if (expression.isEmpty())
-                continue;
-            const Rule rule = makeRule(it.key(), expression);
-            if (!rule.pattern.isValid()) {
-                if (errorMessage)
-                    *errorMessage = QStringLiteral("Invalid pattern for %1: %2")
-                                        .arg(it.key(), rule.pattern.errorString());
+
+    const auto take = [&](const QString &category, const QString &expression) {
+        if (category.isEmpty() || expression.isEmpty())
+            return true;
+        const Rule rule = makeRule(category, expression);
+        if (!rule.pattern.isValid()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Invalid pattern for %1: %2")
+                                    .arg(category, rule.pattern.errorString());
+            }
+            return false;
+        }
+        loaded.append(rule);
+        return true;
+    };
+
+    if (root.value(QLatin1String("rules")).isArray()) {
+        // Ordered form: the array is the precedence, first match wins.
+        const QJsonArray rules = root.value(QLatin1String("rules")).toArray();
+        for (const QJsonValue &entry : rules) {
+            const QJsonObject object = entry.toObject();
+            if (!take(object.value(QLatin1String("category")).toString(),
+                      object.value(QLatin1String("pattern")).toString())) {
                 return false;
             }
-            loaded.append(rule);
+        }
+    } else {
+        /*
+         * The older {"category": ["regex", ...]} form. Its order was never
+         * meaningful -- QJsonObject hands keys back sorted -- so reading it
+         * cannot recover an intent that was not stored. Saving afterwards
+         * writes the ordered form, which at least stops the order shifting
+         * again from then on.
+         */
+        for (auto it = root.constBegin(); it != root.constEnd(); ++it) {
+            const QJsonArray patterns = it.value().toArray();
+            for (const QJsonValue &pattern : patterns) {
+                if (!take(it.key(), pattern.toString()))
+                    return false;
+            }
         }
     }
 
@@ -148,12 +174,20 @@ bool Categoriser::saveToFile(const QString &path, QString *errorMessage) const
 {
     QDir().mkpath(QFileInfo(path).absolutePath());
 
-    QJsonObject root;
+    // An array, not an object keyed by category: order is precedence here, and
+    // a JSON object sorts its keys, so the previous format quietly rearranged
+    // the rules every time the file was read back.
+    QJsonArray rules;
     for (const Rule &rule : m_rules) {
-        QJsonArray patterns = root.value(rule.category).toArray();
-        patterns.append(rule.pattern.pattern());
-        root.insert(rule.category, patterns);
+        rules.append(QJsonObject{
+            {QLatin1String("category"), rule.category},
+            {QLatin1String("pattern"), rule.pattern.pattern()},
+        });
     }
+    const QJsonObject root{
+        {QLatin1String("version"), 2},
+        {QLatin1String("rules"), rules},
+    };
 
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
@@ -163,6 +197,20 @@ bool Categoriser::saveToFile(const QString &path, QString *errorMessage) const
     }
     file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
     return true;
+}
+
+void Categoriser::setRule(const Rule &rule)
+{
+    if (!rule.pattern.isValid() || rule.category.isEmpty())
+        return;
+
+    QList<Rule> rules = m_rules;
+    const QString pattern = rule.pattern.pattern();
+    rules.removeIf([&pattern](const Rule &existing) {
+        return existing.pattern.pattern() == pattern;
+    });
+    rules.prepend(rule);
+    setRules(rules);
 }
 
 QString Categoriser::categorise(const Transaction &transaction) const

@@ -99,6 +99,10 @@ ScrollView {
                         required property string identifier
                         required property string currency
                         required property bool isCard
+                        required property bool hasBalance
+                        required property double balanceMinor
+                        required property string balanceText
+                        required property string balanceName
 
                         Layout.fillWidth: true
                         spacing: Theme.spacing
@@ -153,6 +157,31 @@ ScrollView {
                             text: accountRow.currency
                             color: Theme.textFaint
                             font.pixelSize: Theme.fontSizeSmall
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        /*
+                         * The bank's own label for the balance, because banks
+                         * mean different things by the word -- one reports what
+                         * has cleared, another what is left after pending card
+                         * authorisations. Showing a bare number would invite
+                         * comparing two figures that are not the same kind.
+                         */
+                        Text {
+                            visible: accountRow.hasBalance
+                            text: accountRow.balanceName
+                            color: Theme.textFaint
+                            font.pixelSize: Theme.fontSizeSmall
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            visible: accountRow.hasBalance
+                            text: accountRow.balanceText
+                            color: accountRow.balanceMinor < 0 ? Theme.negative : Theme.text
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.weight: Font.DemiBold
                         }
                     }
                 }
